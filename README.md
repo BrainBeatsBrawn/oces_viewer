@@ -40,7 +40,7 @@ cd oces_viewer
 mkdir build
 pushd build
 CC=clang-20 CXX=clang++-20 cmake .. -GNinja
-make
+ninja
 popd
 ```
 
