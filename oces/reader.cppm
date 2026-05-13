@@ -79,6 +79,8 @@ export namespace oces
         std::vector<oces::mirrorplane> mirrorplanes;
         // Store the matrix for the mirrors defined in mirrorplanes
         std::vector<sm::mat<float, 4>> mirrors;
+        // set true to ignore any mirrors
+        bool ignore_mirrors = false;
 
         // If we have a head mesh, store it here
         oces::meshgroup head_mesh;
@@ -87,9 +89,10 @@ export namespace oces
 
         reader() {}
 
-        reader (const std::string& _filename)
+        reader (const std::string& _filename, const bool& _ignore_mirrors = false)
         {
             this->filename = _filename;
+            this->ignore_mirrors = _ignore_mirrors;
             this->read();
             this->postprocess();
         }
@@ -106,11 +109,10 @@ export namespace oces
             auto vert_fov_r = sm::range<float>::search_initialized();
 
             std::uint32_t omm_per_eye = this->orientation.size();
-            if (!this->mirrorplanes.empty()) {
+            if (!this->mirrorplanes.empty() && !this->ignore_mirrors) {
                 // Two eyes are stored in this->orientation.
                 omm_per_eye /= 2u;
             }
-            std::cout << "We have " << omm_per_eye << " orientations\n";
 
             this->h_plane_orientation.resize (omm_per_eye);
             this->v_plane_orientation.resize (omm_per_eye);
@@ -142,10 +144,6 @@ export namespace oces
                 }
             }
 
-            std::cout << "horz_fov range " << horz_fov_r << std::endl;
-            std::cout << "vert_fov range " << vert_fov_r << std::endl;
-            std::cout << "horz_fov range max " << (horz_fov_r.max * sm::mathconst<float>::rad2deg) << " deg" << std::endl;
-            std::cout << "vert_fov range max " << (vert_fov_r.max * sm::mathconst<float>::rad2deg) << " deg" << std::endl;
             this->horz_fov = horz_fov_r.max;
             this->vert_fov = vert_fov_r.max;
         }
@@ -362,7 +360,7 @@ export namespace oces
                 std::cerr << "ang_from_mean max " << ang_from_mean.max() * sm::mathconst<float>::rad2deg << std::endl;
 
                 // Act on mirror planes and add to position arrays
-                if (!this->mirrorplanes.empty()) {
+                if (!this->mirrorplanes.empty() && !this->ignore_mirrors) {
 
                     // Get size for one eye
                     size_t sz = this->position.size();

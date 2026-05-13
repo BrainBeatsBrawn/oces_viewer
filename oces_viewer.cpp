@@ -135,6 +135,7 @@ int main (int argc, char** argv)
     args::ValueFlag<std::string> a_proj (ap, "proj",   "The projection type (equirectangular, mercator or cassini)", {'p'});
     args::Flag a_fov (ap, "fov", "Show field of view with acceptance angle cones", {'v', "fov"});
     args::Flag a_verbose (ap, "verbose", "Print ommatidial positions and orientations to stdout", {'V', "verbose"});
+    args::Flag a_hidemirror (ap, "hidemirror", "Hide the mirrored eye", {'H', "hidemirror"});
     args::Flag a_hidehead (ap, "hidehead", "Hide the head, even if it was read from OCES file", {'i', "hidehead"});
     args::Flag a_showsphere (ap, "showsphere", "Show the 2D projection sphere", {'s', "showsphere"});
     args::Flag a_showrays (ap, "showrays", "Show the 2D ommatidia projection rays", {'y', "showrays"});
@@ -146,9 +147,9 @@ int main (int argc, char** argv)
     sm::vec<float> pscentre = { 0, 0, 0 };
     float psr = 0.0f;
     sm::vec<float> psrax = { 0, 1, 0 };
-    sm::vec<float> twod_shift = { -0.0005, 0.0006, 0 }; // A shift of the twod representation of the
-                                                        // right eye (the purple one in the example
-                                                        // velox-head filef)
+    sm::vec<float> twod_shift = { -0.0005, 0.002, 0 }; // A shift of the twod representation of the
+                                                       // right eye (the purple one in the example
+                                                       // velox-head file)
 
     if (a_fname) {
         filename = args::get (a_fname);
@@ -189,12 +190,14 @@ int main (int argc, char** argv)
     }
 
     // Read
-    oces::reader oces_reader (filename);
+    oces::reader oces_reader (filename, (a_hidemirror ? true : false));
     if (oces_reader.read_success == false) { return -1; }
 
     // Now view
     auto v = OcesVisual(1024, 768, "mplot::compoundray::EyeVisual");
     v.lightingEffects (true);
+
+    v.coordArrowsInScene (true);
 
     // Copy cmd line options into v
     v.view_options.set (viewopts::show_fov, (a_fov ? true : false));
@@ -241,7 +244,7 @@ int main (int argc, char** argv)
     }
 
     // Place a colour bar for the ommtidia index
-    auto cbv = std::make_unique<mplot::ColourBarVisual<float>>(sm::vec<>{0.6f,-1,0});
+    auto cbv = std::make_unique<mplot::ColourBarVisual<float>>(sm::vec<>{0.5f,-0.6f,0});
     cbv->set_parent (v.get_id());
     cbv->orientation = mplot::colourbar_orientation::horizontal;
     cbv->tickside = mplot::colourbar_tickside::right_or_below;
@@ -287,6 +290,13 @@ int main (int argc, char** argv)
 
     auto ep = make_eye_model (v, oces_reader, ommatidia.get(), &ommatidiaColours,
                               projstr, psrad, pscentre, psr, psrax, twod_shift, nullptr);
+
+    auto aar = oces_reader.acceptance_angle.range();
+    std::cout << "Acceptance angle range: "
+              << (aar.min * sm::mathconst<float>::rad2deg) << " - " << (aar.max * sm::mathconst<float>::rad2deg)
+              << ", mean: " << (oces_reader.acceptance_angle.mean() * sm::mathconst<float>::rad2deg) << std::endl;
+    std::cout << "Lens diameter range: " << oces_reader.diameter.range()
+              << ", mean: " << oces_reader.diameter.mean() << std::endl;
 
     sm::flags<viewopts> last_view_options = v.view_options;
     while (!v.readyToFinish()) {
