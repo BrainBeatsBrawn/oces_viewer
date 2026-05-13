@@ -13,6 +13,7 @@ import oces.reader;
 import mplot.visual;
 import mplot.spherevisual;
 import mplot.colourbarvisual;
+import mplot.coordarrows;
 import mplot.quivervisual;
 import mplot.compoundray.eyevisual;
 import sm.flags;
@@ -26,6 +27,7 @@ enum class viewopts : std::uint32_t
     show_twod,
     show_rays,
     show_head,
+    show_origin
 };
 
 // Extend mplot::Visual for key-commands
@@ -46,6 +48,7 @@ protected:
         if (key == mplot::key::p && action == mplot::keyaction::press) { this->view_options.flip (viewopts::show_twod); }
         if (key == mplot::key::y && action == mplot::keyaction::press) { this->view_options.flip (viewopts::show_rays); }
         if (key == mplot::key::i && action == mplot::keyaction::press) { this->view_options.flip (viewopts::show_head); }
+        if (key == mplot::key::z && action == mplot::keyaction::press) { this->view_options.flip (viewopts::show_origin); }
         // Add app-specific help output:
         if (key == mplot::key::h && action == mplot::keyaction::press) {
             std::cout << "OCES Viewer key commands:\n";
@@ -55,6 +58,7 @@ protected:
             std::cout << "p: Toggle 2D projection of eye for visualizations\n";
             std::cout << "y: Toggle Rays\n";
             std::cout << "i: Toggle Head\n";
+            std::cout << "z: Toggle OCES origin\n";
         }
     }
 };
@@ -139,6 +143,7 @@ int main (int argc, char** argv)
     args::Flag a_hidehead (ap, "hidehead", "Hide the head, even if it was read from OCES file", {'i', "hidehead"});
     args::Flag a_showsphere (ap, "showsphere", "Show the 2D projection sphere", {'s', "showsphere"});
     args::Flag a_showrays (ap, "showrays", "Show the 2D ommatidia projection rays", {'y', "showrays"});
+    args::Flag a_showorigin (ap, "showorigin", "Show coordinate arrows in-scene at the OCES origin", {'z', "showorigin"});
 
     ap.ParseCLI (argc, argv);
 
@@ -197,8 +202,6 @@ int main (int argc, char** argv)
     auto v = OcesVisual(1024, 768, "mplot::compoundray::EyeVisual");
     v.lightingEffects (true);
 
-    v.coordArrowsInScene (false); // set to true to see the location of the OCES coordinate system origin
-
     // Copy cmd line options into v
     v.view_options.set (viewopts::show_fov, (a_fov ? true : false));
     v.view_options.set (viewopts::show_proj_fov, (a_fov ? true : false)); // use a_fov here, too
@@ -206,6 +209,7 @@ int main (int argc, char** argv)
     v.view_options.set (viewopts::show_sphere, (a_showsphere ? true : false));
     v.view_options.set (viewopts::show_head, (a_hidehead ? false : true));
     v.view_options.set (viewopts::show_twod, (a_psrad ? true : false));
+    v.view_options.set (viewopts::show_origin, (a_showorigin ? true : false));
 
     // We read the information from the eye file into a vector of Ommatidium objects.  Ommatidium is
     // defined in "cameras/CompoundEyeDataTypes.h" in compound ray, mplot::Ommatidium is a
@@ -259,6 +263,18 @@ int main (int argc, char** argv)
     auto cbvp = v.addVisualModel (cbv);
     cbvp->setHide (v.view_options.test (viewopts::show_fov) == true);
 
+    // Coordinate arrows for OCES origin
+    auto origin_ca = std::make_unique<mplot::CoordArrows<>> (sm::vec<>{});
+    origin_ca->set_parent (v.get_id());
+    origin_ca->em = 0.0f;
+    float len = 2.0f;
+    origin_ca->lengths = { len, len, len };
+    origin_ca->thickness = 1.0f;
+    origin_ca->endsphere_size = 1.2f;
+    origin_ca->finalize();
+    auto oces_origin = v.addVisualModel (origin_ca);
+    oces_origin->setHide (v.view_options.test (viewopts::show_origin) == false);
+
     // Quivers for projected angles
     auto qvh = std::make_unique<mplot::QuiverVisual<float>>(&oces_reader.h_plane_position, sm::vec<>{-7, 0, 0},
                                                             &oces_reader.h_plane_orientation,
@@ -306,6 +322,7 @@ int main (int argc, char** argv)
             qvhp_h->setHide (v.view_options.test (viewopts::show_proj_fov) == false);
             qvhp_v->setHide (v.view_options.test (viewopts::show_proj_fov) == false);
             cbvp->setHide (v.view_options.test (viewopts::show_fov) == true);
+            oces_origin->setHide (v.view_options.test (viewopts::show_origin) == false);
             // Everything else is part of eyevm.
             ep = make_eye_model (v, oces_reader, ommatidia.get(), &ommatidiaColours,
                                  projstr, psrad, pscentre, psr, psrax, twod_shift, ep);
