@@ -197,7 +197,7 @@ int main (int argc, char** argv)
     auto v = OcesVisual(1024, 768, "mplot::compoundray::EyeVisual");
     v.lightingEffects (true);
 
-    v.coordArrowsInScene (true);
+    v.coordArrowsInScene (false); // set to true to see the location of the OCES coordinate system origin
 
     // Copy cmd line options into v
     v.view_options.set (viewopts::show_fov, (a_fov ? true : false));
