@@ -69,26 +69,32 @@ protected:
 
         if (key == mplot::key::left && action == mplot::keyaction::press) {
             pscentre[2] -= psinc; // -z
+            std::cout << "Projection sphere centre is now: " << pscentre << std::endl;
             this->view_options.set (viewopts::needs_update);
         }
         if (key == mplot::key::right && action == mplot::keyaction::press) {
             pscentre[2] += psinc; // +z
+            std::cout << "Projection sphere centre is now: " << pscentre << std::endl;
             this->view_options.set (viewopts::needs_update);
         }
         if (key == mplot::key::up && action == mplot::keyaction::press) {
             pscentre[1] += psinc; // +y
+            std::cout << "Projection sphere centre is now: " << pscentre << std::endl;
             this->view_options.set (viewopts::needs_update);
         }
         if (key == mplot::key::down && action == mplot::keyaction::press) {
             pscentre[1] -= psinc; // -y
+            std::cout << "Projection sphere centre is now: " << pscentre << std::endl;
             this->view_options.set (viewopts::needs_update);
         }
         if (key == mplot::key::home && action == mplot::keyaction::press) {
             pscentre[0] += psinc; // +x
+            std::cout << "Projection sphere centre is now: " << pscentre << std::endl;
             this->view_options.set (viewopts::needs_update);
         }
         if (key == mplot::key::end && action == mplot::keyaction::press) {
             pscentre[0] -= psinc; // -x
+            std::cout << "Projection sphere centre is now: " << pscentre << std::endl;
             this->view_options.set (viewopts::needs_update);
         }
 
