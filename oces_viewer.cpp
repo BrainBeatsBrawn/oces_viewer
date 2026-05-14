@@ -27,7 +27,8 @@ enum class viewopts : std::uint32_t
     show_twod,
     show_rays,
     show_head,
-    show_origin
+    show_origin,
+    needs_update
 };
 
 // Extend mplot::Visual for key-commands
@@ -37,6 +38,22 @@ struct OcesVisual final : public mplot::Visual<>
     OcesVisual(int width, int height, const std::string & title) : mplot::Visual<>(width, height, title) {}
     // Boolean flags for what we want to have visible
     sm::flags<viewopts> view_options;
+    // Centre of the projection sphere
+    sm::vec<float> pscentre = { 0, 0, 0 };
+    // How far to move sphere with each key press
+    float psinc = 0.00001f;
+    // Projection sphere rotation in radians
+    float psr = 0.0f;
+    // Projection sphere radius
+    float psrad = 0.0f;
+    // Projection sphere rotation axis
+    sm::vec<float> psrax = { 0, 1, 0 };
+    // A shift of the twod representation of the right eye (the purple one in the example velox-head
+    // file)
+    sm::vec<float> twod_shift = { -0.0005, 0.00075, 0 };
+    // What kind of 2D projection?
+    std::string projstr = "equirectangular";
+
 protected:
     // Add our key event handling in this extension of mplot::Visual::key_callback_extra
     void key_callback_extra ([[maybe_unused]] int key, [[maybe_unused]] int scancode,
@@ -49,6 +66,32 @@ protected:
         if (key == mplot::key::y && action == mplot::keyaction::press) { this->view_options.flip (viewopts::show_rays); }
         if (key == mplot::key::i && action == mplot::keyaction::press) { this->view_options.flip (viewopts::show_head); }
         if (key == mplot::key::z && action == mplot::keyaction::press) { this->view_options.flip (viewopts::show_origin); }
+
+        if (key == mplot::key::left && action == mplot::keyaction::press) {
+            pscentre[2] -= psinc; // -z
+            this->view_options.set (viewopts::needs_update);
+        }
+        if (key == mplot::key::right && action == mplot::keyaction::press) {
+            pscentre[2] += psinc; // +z
+            this->view_options.set (viewopts::needs_update);
+        }
+        if (key == mplot::key::up && action == mplot::keyaction::press) {
+            pscentre[1] += psinc; // +y
+            this->view_options.set (viewopts::needs_update);
+        }
+        if (key == mplot::key::down && action == mplot::keyaction::press) {
+            pscentre[1] -= psinc; // -y
+            this->view_options.set (viewopts::needs_update);
+        }
+        if (key == mplot::key::home && action == mplot::keyaction::press) {
+            pscentre[0] += psinc; // +x
+            this->view_options.set (viewopts::needs_update);
+        }
+        if (key == mplot::key::end && action == mplot::keyaction::press) {
+            pscentre[0] -= psinc; // -x
+            this->view_options.set (viewopts::needs_update);
+        }
+
         // Add app-specific help output:
         if (key == mplot::key::h && action == mplot::keyaction::press) {
             std::cout << "OCES Viewer key commands:\n";
@@ -59,6 +102,7 @@ protected:
             std::cout << "y: Toggle Rays\n";
             std::cout << "i: Toggle Head\n";
             std::cout << "z: Toggle OCES origin\n";
+            std::cout << "cursor keys and home/end: Move projection sphere\n";
         }
     }
 };
@@ -67,9 +111,6 @@ protected:
 mplot::compoundray::EyeVisual<>* make_eye_model (OcesVisual& v, oces::reader& oces_reader,
                                                  std::vector<mplot::compoundray::Ommatidium>* ommatidia,
                                                  std::vector<std::array<float, 3>>* ommatidiaColours,
-                                                 const std::string& projstr,
-                                                 const float psrad, sm::vec<float> pscentre, const float psr,
-                                                 const sm::vec<float>& psrax, const sm::vec<float>& twod_shift,
                                                  mplot::compoundray::EyeVisual<>* ep)
 {
     if (ep != nullptr) { v.removeVisualModel (ep); }
@@ -88,29 +129,28 @@ mplot::compoundray::EyeVisual<>* make_eye_model (OcesVisual& v, oces::reader& oc
     eyevm->show_cones = true;
 
     [[maybe_unused]] auto ptype = mplot::compoundray::EyeVisual<>::projection_type::equirectangular; // mercator, equirectangular or cassini
-    if (projstr.find ("merc") != std::string::npos) {
+    if (v.projstr.find ("merc") != std::string::npos) {
         ptype = mplot::compoundray::EyeVisual<>::projection_type::mercator;
-    } else if (projstr.find ("cass") != std::string::npos) {
+    } else if (v.projstr.find ("cass") != std::string::npos) {
         ptype = mplot::compoundray::EyeVisual<>::projection_type::cassini;
     }
 
     sm::mat<float, 4> twod_tr;
-    twod_tr.translate (twod_shift);
+    twod_tr.translate (v.twod_shift);
 
-    if (psrad > 0.0f && v.view_options.test (viewopts::show_twod)) {
+    if (v.psrad > 0.0f && v.view_options.test (viewopts::show_twod)) {
         // To avoid 2D, don't add spherical projections
-        std::cout << "Rotation about axis " << psrax << " by amount " << psr << " radians\n";
-        sm::quaternion<float> psrotn (psrax, psr);
-        eyevm->add_spherical_projection (ptype, twod_tr, pscentre, psrad, psrotn, 0, oces_reader.position.size() / 2);
+        std::cout << "Rotation about axis " << v.psrax << " by amount " << v.psr << " radians\n";
+        sm::quaternion<float> psrotn (v.psrax, v.psr);
+        eyevm->add_spherical_projection (ptype, twod_tr, v.pscentre, v.psrad, psrotn, 0, oces_reader.position.size() / 2);
         if (oces_reader.mirrors.empty() == false) {
-            pscentre = (oces_reader.mirrors[0] * pscentre).less_one_dim();
-            std::cout << "New centre: " << pscentre << std::endl;
+            sm::vec<> _pscentre = (oces_reader.mirrors[0] * v.pscentre).less_one_dim();
 
-            sm::vec<> twod_shift_left = twod_shift;
+            sm::vec<> twod_shift_left = v.twod_shift;
             twod_shift_left[0] *= -1.0f;
             twod_tr.set_identity();
             twod_tr.translate (twod_shift_left);
-            eyevm->add_spherical_projection (ptype, twod_tr, pscentre, psrad, psrotn.invert(),
+            eyevm->add_spherical_projection (ptype, twod_tr, _pscentre, v.psrad, psrotn.invert(),
                                              oces_reader.position.size() / 2, oces_reader.position.size());
         }
     }
@@ -123,6 +163,7 @@ mplot::compoundray::EyeVisual<>* make_eye_model (OcesVisual& v, oces::reader& oc
 
     mplot::compoundray::EyeVisual<>* _ep = v.addVisualModel (eyevm);
     _ep->scaleViewMatrix (1000.0f); // Tiny ant eyes are scaled by a big factor to be in more useable model units
+    v.view_options.reset (viewopts::needs_update);
     return _ep;
 }
 
@@ -148,50 +189,12 @@ int main (int argc, char** argv)
     ap.ParseCLI (argc, argv);
 
     std::string filename = "";
-    float psrad = 0.1f;
-    sm::vec<float> pscentre = { 0, 0, 0 };
-    float psr = 0.0f;
-    sm::vec<float> psrax = { 0, 1, 0 };
-    sm::vec<float> twod_shift = { -0.0005, 0.002, 0 }; // A shift of the twod representation of the
-                                                       // right eye (the purple one in the example
-                                                       // velox-head file)
 
     if (a_fname) {
         filename = args::get (a_fname);
     } else {
         std::cerr << ap;
         return -1;
-    }
-
-    if (a_psrad) {
-        psrad = args::get (a_psrad);
-        std::cerr << "User-supplied projection sphere radius: " << psrad << std::endl;
-    }
-
-    if (a_centre) {
-        pscentre.set_from (args::get (a_centre));
-        std::cerr << "User-supplied projection sphere centre: " << pscentre << std::endl;
-    }
-
-    if (a_psrax) {
-        psrax.set_from (args::get (a_psrax));
-        std::cerr << "User-supplied projection rotation axis: " << psrax << std::endl;
-    }
-
-    if (a_2dshift) {
-        twod_shift.set_from (args::get (a_2dshift));
-        std::cerr << "User-supplied 2D eye shift: " << twod_shift << std::endl;
-    }
-
-    if (a_psr) {
-        psr = args::get (a_psr);
-        std::cerr << "User-supplied projection rotation radians: " << psr << std::endl;
-    }
-
-    std::string projstr = "equirectangular";
-    if (a_proj) {
-        projstr = args::get (a_proj);
-        std::cerr << "User-supplied projection type: " << projstr << std::endl;
     }
 
     // Read
@@ -201,6 +204,37 @@ int main (int argc, char** argv)
     // Now view
     auto v = OcesVisual(1024, 768, "mplot::compoundray::EyeVisual");
     v.lightingEffects (true);
+
+    // Set some options in OcesVisual
+    if (a_psrad) {
+        v.psrad = args::get (a_psrad);
+        std::cerr << "User-supplied projection sphere radius: " << v.psrad << std::endl;
+    }
+
+    if (a_centre) {
+        v.pscentre.set_from (args::get (a_centre));
+        std::cerr << "User-supplied projection sphere centre: " << v.pscentre << std::endl;
+    }
+
+    if (a_psrax) {
+        v.psrax.set_from (args::get (a_psrax));
+        std::cerr << "User-supplied projection rotation axis: " << v.psrax << std::endl;
+    }
+
+    if (a_2dshift) {
+        v.twod_shift.set_from (args::get (a_2dshift));
+        std::cerr << "User-supplied 2D eye shift: " << v.twod_shift << std::endl;
+    }
+
+    if (a_psr) {
+        v.psr = args::get (a_psr);
+        std::cerr << "User-supplied projection rotation radians: " << v.psr << std::endl;
+    }
+
+    if (a_proj) {
+        v.projstr = args::get (a_proj);
+        std::cerr << "User-supplied projection type: " << v.projstr << std::endl;
+    }
 
     // Copy cmd line options into v
     v.view_options.set (viewopts::show_fov, (a_fov ? true : false));
@@ -247,22 +281,6 @@ int main (int argc, char** argv)
         ommatidiaColours[i] = cm.convert (ommatidiaData[i]);
     }
 
-    // Place a colour bar for the ommtidia index
-    auto cbv = std::make_unique<mplot::ColourBarVisual<float>>(sm::vec<>{0.5f,-0.6f,0});
-    cbv->set_parent (v.get_id());
-    cbv->orientation = mplot::colourbar_orientation::horizontal;
-    cbv->tickside = mplot::colourbar_tickside::right_or_below;
-    cbv->cm = cm;
-    cbv->width = 0.08f;
-    cbv->length = 0.5f;
-    cbv->tf.fontsize = 0.04f;
-    cbv->scale.compute_scaling (0.0f, static_cast<float>(ommatidia->size() - 1));
-    cbv->addLabel ("Index 0-" + std::to_string (ommatidia->size() - 1),
-                   sm::vec<>{0, 0.15f, 0}, mplot::TextFeatures(0.05f));
-    cbv->finalize();
-    auto cbvp = v.addVisualModel (cbv);
-    cbvp->setHide (v.view_options.test (viewopts::show_fov) == true);
-
     // Coordinate arrows for OCES origin
     auto origin_ca = std::make_unique<mplot::CoordArrows<>> (sm::vec<>{});
     origin_ca->set_parent (v.get_id());
@@ -304,8 +322,27 @@ int main (int argc, char** argv)
     auto qvhp_v = v.addVisualModel (qvh);
     qvhp_v->setHide (v.view_options.test (viewopts::show_proj_fov) == false);
 
-    auto ep = make_eye_model (v, oces_reader, ommatidia.get(), &ommatidiaColours,
-                              projstr, psrad, pscentre, psr, psrax, twod_shift, nullptr);
+    auto ep = make_eye_model (v, oces_reader, ommatidia.get(), &ommatidiaColours, nullptr);
+
+    sm::vec<sm::range<float>, 3> extn = ep->extents();
+    std::cout << "Eyemodel extents: " << extn << std::endl; // 1000 times less than they really appear
+
+    // Place a colour bar for the ommtidia index
+    auto cbv = std::make_unique<mplot::ColourBarVisual<float>>(sm::vec<>{extn[0].max * 1000.0f, extn[1].min * 1000.0f, 0.0f});
+    cbv->set_parent (v.get_id());
+    cbv->orientation = mplot::colourbar_orientation::horizontal;
+    cbv->tickside = mplot::colourbar_tickside::right_or_below;
+    cbv->cm = cm;
+    cbv->width = 0.08f;
+    cbv->length = 0.5f;
+    cbv->tf.fontsize = 0.04f;
+    cbv->scale.compute_scaling (0.0f, static_cast<float>(ommatidia->size() - 1));
+    cbv->addLabel ("Index 0-" + std::to_string (ommatidia->size() - 1),
+                   sm::vec<>{0, 0.15f, 0}, mplot::TextFeatures(0.05f));
+    cbv->finalize();
+    auto cbvp = v.addVisualModel (cbv);
+    cbvp->setHide (v.view_options.test (viewopts::show_fov) == true);
+
 
     auto aar = oces_reader.acceptance_angle.range();
     std::cout << "Acceptance angle range: "
@@ -324,8 +361,7 @@ int main (int argc, char** argv)
             cbvp->setHide (v.view_options.test (viewopts::show_fov) == true);
             oces_origin->setHide (v.view_options.test (viewopts::show_origin) == false);
             // Everything else is part of eyevm.
-            ep = make_eye_model (v, oces_reader, ommatidia.get(), &ommatidiaColours,
-                                 projstr, psrad, pscentre, psr, psrax, twod_shift, ep);
+            ep = make_eye_model (v, oces_reader, ommatidia.get(), &ommatidiaColours, ep);
             last_view_options = v.view_options;
         }
         v.render();
