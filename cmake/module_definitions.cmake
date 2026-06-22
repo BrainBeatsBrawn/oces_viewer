@@ -10,7 +10,7 @@ macro(setup_module_variables_for_oces_reader_maths base_directory)
     ${base_directory}/sm/mathconst.cppm;
     ${base_directory}/sm/constexpr_math.cppm;
     ${base_directory}/sm/trait_tests.cppm;
-    ${base_directory}/sm/range.cppm;
+    ${base_directory}/sm/interval.cppm;
     ${base_directory}/sm/polysolve.cppm;
     ${base_directory}/sm/bessel_i0.cppm;
     ${base_directory}/sm/random.cppm;

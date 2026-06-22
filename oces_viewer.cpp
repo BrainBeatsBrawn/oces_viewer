@@ -330,7 +330,7 @@ int main (int argc, char** argv)
 
     auto ep = make_eye_model (v, oces_reader, ommatidia.get(), &ommatidiaColours, nullptr);
 
-    sm::vec<sm::range<float>, 3> extn = ep->extents();
+    sm::vec<sm::interval<float>, 3> extn = ep->extents();
     std::cout << "Eyemodel extents: " << extn << std::endl; // 1000 times less than they really appear
 
     // Place a colour bar for the ommtidia index

@@ -46,8 +46,8 @@ export namespace oces
         sm::vvec<sm::vec<float>> positions;
         sm::vvec<sm::vec<float>> normals;
         sm::vvec<sm::vec<float>> colours;
-        sm::range<sm::vec<float>> object_aabb;
-        sm::range<sm::vec<float>> world_aabb;
+        sm::interval<sm::vec<float>> object_aabb;
+        sm::interval<sm::vec<float>> world_aabb;
         std::array<float, 3> single_colour = {0};
     };
 
@@ -105,8 +105,8 @@ export namespace oces
 
         void compute_fov_max()
         {
-            auto horz_fov_r = sm::range<float>::search_initialized();
-            auto vert_fov_r = sm::range<float>::search_initialized();
+            auto horz_fov_r = sm::interval<float>::search_initialized();
+            auto vert_fov_r = sm::interval<float>::search_initialized();
 
             std::uint32_t omm_per_eye = this->orientation.size();
             if (!this->mirrorplanes.empty() && !this->ignore_mirrors) {
@@ -524,9 +524,9 @@ export namespace oces
                         const auto& pos_gltf_accessor = model.accessors[pos_accessor_idx];
                         sm::vec<double> minvals = { pos_gltf_accessor.minValues[0], pos_gltf_accessor.minValues[1], pos_gltf_accessor.minValues[2] };
                         sm::vec<double> maxvals = { pos_gltf_accessor.maxValues[0], pos_gltf_accessor.maxValues[1], pos_gltf_accessor.maxValues[2] };
-                        head_mesh.object_aabb = sm::range<sm::vec<float>> (minvals.as<float>(), maxvals.as<float>());
-                        head_mesh.world_aabb = sm::range<sm::vec<float>> ((node_xform * head_mesh.object_aabb.min).less_one_dim(),
-                                                                          (node_xform * head_mesh.object_aabb.max).less_one_dim());
+                        head_mesh.object_aabb = sm::interval<sm::vec<float>> (minvals.as<float>(), maxvals.as<float>());
+                        head_mesh.world_aabb = sm::interval<sm::vec<float>> ((node_xform * head_mesh.object_aabb.min).less_one_dim(),
+                                                                             (node_xform * head_mesh.object_aabb.max).less_one_dim());
                         // Normals
                         auto normal_accessor_iter = gltf_primitive.attributes.find ("NORMAL");
                         if (normal_accessor_iter != gltf_primitive.attributes.end()) {

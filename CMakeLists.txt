@@ -38,7 +38,7 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/extern/maths/cmake" ${CMAKE_MODULE_
 
 # Include maths module defs
 include(${PROJECT_SOURCE_DIR}/extern/maths/cmake/module_definitions.cmake)
-setup_module_variables_for_maths (${PROJECT_SOURCE_DIR}/extern/maths)
+setup_module_variables_for_maths (${PROJECT_SOURCE_DIR}/extern/maths, ${PROJECT_SOURCE_DIR}/extern/json)
 # Include mathplot module defs
 include(${PROJECT_SOURCE_DIR}/extern/mathplot/cmake/module_definitions.cmake)
 setup_module_variables_for_mathplot_maths (${PROJECT_SOURCE_DIR}/extern/maths)
@@ -53,6 +53,7 @@ set(OCES_VM_MODULES
   ${MPLOT_INCLUDE_PATH}/mplot/SphereVisual.cppm
   ${MPLOT_INCLUDE_PATH}/mplot/ColourBarVisual.cppm
   ${MPLOT_INCLUDE_PATH}/mplot/QuiverVisual.cppm
+  ${MPLOT_INCLUDE_PATH}/mplot/jcvoronoi/jc_voronoi.cppm
   ${MPLOT_INCLUDE_PATH}/mplot/compoundray/EyeVisual.cppm
 )
 
