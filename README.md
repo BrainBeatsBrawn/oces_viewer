@@ -7,7 +7,7 @@ This reader does not yet provide a full implementation of the standard.
 * **oces2cray** Opens an OCES file and outputs the ommatidia data in libcompound-ray's CSV 'eye file format' to stdout
 * **oces_viewer** Opens an OCES file and visualizes the eye and head.
 
-![Screenshot of Velox head and eyes](https://github.com/sebsjames/oces_viewer/blob/main/images/oces_montage.png?raw=true)
+![Screenshot of Velox head and eyes](https://github.com/BrainBeatsBrawn/oces_viewer/blob/main/images/oces_montage.png?raw=true)
 
 
 ## Getting the code
@@ -15,7 +15,7 @@ This reader does not yet provide a full implementation of the standard.
 Clone this repo from github with submodules.
 
 ```bash
-git clone git@github.com:sebsjames/oces_viewer
+git clone git@github.com:BrainBeatsBrawn/oces_viewer
 cd oces_viewer
 git submodule init
 git submodule update
@@ -41,7 +41,7 @@ Do a cmake build
 cd oces_viewer
 mkdir build
 pushd build
-CC=clang-20 CXX=clang++-20 cmake .. -GNinja
+CXX=clang++-20 cmake .. -GNinja
 ninja
 popd
 ```
