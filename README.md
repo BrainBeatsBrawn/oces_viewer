@@ -2,7 +2,7 @@
 
 This repository provides a (draft) library module `oces::reader` and a couple of programs for reading Open Compound Eye Standard (OCES) files.
 Open Compound Eye Standard was created by Blayze Millward during his PhD work with Mike Mangan at The University of Sheffield.
-This reader does not yet provide a full implementation of the draft standard, which is described in Blayze's' [thesis](https://etheses.whiterose.ac.uk/id/eprint/37113/).
+This reader does not yet provide a full implementation of the draft standard, which is described in Blayze's [thesis](https://etheses.whiterose.ac.uk/id/eprint/37113/).
 
 * **oces2cray** Opens an OCES file and outputs the ommatidia data in libcompound-ray's CSV 'eye file format' to stdout
 * **oces_viewer** Opens an OCES file and visualizes the eye and head.
