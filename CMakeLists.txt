@@ -43,8 +43,7 @@ include(${PROJECT_SOURCE_DIR}/extern/mathplot/cmake/module_definitions.cmake)
 setup_module_variables_for_mathplot (${PROJECT_SOURCE_DIR}/extern/mathplot ${PROJECT_SOURCE_DIR}/extern/maths ${PROJECT_SOURCE_DIR}/extern/json)
 # Add our own cmake directory
 include(${PROJECT_SOURCE_DIR}/cmake/module_definitions.cmake)
-setup_module_variables_for_oces_reader_maths (${PROJECT_SOURCE_DIR}/extern/maths)
-setup_module_variables_for_oces_reader (${PROJECT_SOURCE_DIR})
+setup_module_variables_for_oces_reader (${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/extern/maths)
 
 set(OCES_VM_MODULES
   ${MPLOT_INCLUDE_PATH}/mplot/SphereVisual.cppm
@@ -56,7 +55,6 @@ set(OCES_VM_MODULES
 
 # View the eye with a mathplot-based program
 set(OCES_VIEWER_MODULES
-  ${OCES_READER_MATHS_MODULES}
   ${OCES_READER_MODULES}
   ${MPLOT_CORE_MODULES}
   ${OCES_VM_MODULES}
