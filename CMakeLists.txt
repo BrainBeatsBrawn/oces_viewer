@@ -28,23 +28,20 @@ include_directories(BEFORE ${PROJECT_SOURCE_DIR}/extern/maths) # Allows sm/Heade
 include_directories(BEFORE ${PROJECT_SOURCE_DIR}/extern)   # tinygltf etc
 include_directories(BEFORE ${PROJECT_SOURCE_DIR})          # oces/reader.h
 
+# allows #include <nlohmann/json.hpp> so that the module json.cppm can be built
+include_directories ("${PROJECT_SOURCE_DIR}/extern/json/include")
+
 # For viewer programs that use mathplot, we have to compile libglad and libmathplot_fonts
 add_library(glad STATIC ${MPLOT_INCLUDE_PATH}/mplot/glad/gl.c)
 add_library(mplot_fontdata STATIC ${MPLOT_INCLUDE_PATH}/mplot/VisualFaceAsm.cpp)
 
-# We obtain module variable definitions from some of our dependencies
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/extern/mathplot/cmake" ${CMAKE_MODULE_PATH})
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/extern/maths/cmake" ${CMAKE_MODULE_PATH})
-
 # Include maths module defs
 include(${PROJECT_SOURCE_DIR}/extern/maths/cmake/module_definitions.cmake)
-setup_module_variables_for_maths (${PROJECT_SOURCE_DIR}/extern/maths, ${PROJECT_SOURCE_DIR}/extern/json)
+setup_module_variables_for_maths (${PROJECT_SOURCE_DIR}/extern/maths ${PROJECT_SOURCE_DIR}/extern/json)
 # Include mathplot module defs
 include(${PROJECT_SOURCE_DIR}/extern/mathplot/cmake/module_definitions.cmake)
-setup_module_variables_for_mathplot_maths (${PROJECT_SOURCE_DIR}/extern/maths)
-setup_module_variables_for_mathplot (${PROJECT_SOURCE_DIR}/extern/mathplot)
+setup_module_variables_for_mathplot (${PROJECT_SOURCE_DIR}/extern/mathplot ${PROJECT_SOURCE_DIR}/extern/maths ${PROJECT_SOURCE_DIR}/extern/json)
 # Add our own cmake directory
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 include(${PROJECT_SOURCE_DIR}/cmake/module_definitions.cmake)
 setup_module_variables_for_oces_reader_maths (${PROJECT_SOURCE_DIR}/extern/maths)
 setup_module_variables_for_oces_reader (${PROJECT_SOURCE_DIR})
@@ -61,8 +58,6 @@ set(OCES_VM_MODULES
 set(OCES_VIEWER_MODULES
   ${OCES_READER_MATHS_MODULES}
   ${OCES_READER_MODULES}
-  ${MPLOT_MATHS_CORE_MODULES}
-  ${MPLOT_MATHS_VISUALMODEL_MODULES}
   ${MPLOT_CORE_MODULES}
   ${OCES_VM_MODULES}
 )
