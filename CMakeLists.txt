@@ -79,5 +79,5 @@ target_link_libraries(oces_hexy OpenGL::GL Freetype::Freetype glfw glad mplot_fo
 add_executable(oces2cray oces2cray.cpp)
 target_sources(oces2cray
   PUBLIC FILE_SET CXX_MODULES BASE_DIRS ${PROJECT_SOURCE_DIR}
-  FILES ${OCES_READER_MATHS_MODULES} ${OCES_READER_MODULES}
+  FILES ${OCES_READER_MODULES}
 )
