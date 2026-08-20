@@ -49,7 +49,7 @@ set(OCES_VM_MODULES
   ${MPLOT_INCLUDE_PATH}/mplot/SphereVisual.cppm
   ${MPLOT_INCLUDE_PATH}/mplot/ColourBarVisual.cppm
   ${MPLOT_INCLUDE_PATH}/mplot/QuiverVisual.cppm
-  ${MPLOT_INCLUDE_PATH}/mplot/jcvoronoi/jc_voronoi.cppm
+  ${SM_JCV_MODULES}
   ${MPLOT_INCLUDE_PATH}/mplot/compoundray/EyeVisual.cppm
 )
 

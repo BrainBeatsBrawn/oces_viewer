@@ -31,9 +31,9 @@ export import sm.geometry;
 
 export namespace oces
 {
-    struct mirrorplane
+    struct plane
     {
-        sm::vec<float> position = {};
+        sm::vec<float> origin = {};
         sm::vec<float> normal = {1, 0, 0};
     };
 
@@ -51,7 +51,8 @@ export namespace oces
         std::array<float, 3> single_colour = {0};
     };
 
-    // The OCES eye contains the actual data about the ommatidia in the eye
+    // The OCES eye contains the actual data about the ommatidia in the eye (along with an optional
+    // head mesh and mirrors)
     struct eye
     {
         sm::vvec<sm::vec<float, 3>> position = {};    // Units: m
@@ -72,14 +73,85 @@ export namespace oces
         sm::vvec<sm::vec<float, 3>> v_plane_orientation;
         sm::vvec<sm::vec<float, 3>> v_plane_position;
 
+        // Mean neighbour-neighbour distance of the closest 6 ommatidial neighbours
+        float d_mean = 0.0f;
+
+        // Maximum distance between any two ommatidia in the eye (just one, not a mirrored pair)
+        float d_max = 0.0f;
+
         // A second eye may be mirrored by a mirrorplane
-        std::vector<oces::mirrorplane> mirrorplanes;
+        std::vector<oces::plane> mirrorplanes;
         // Store the matrix for the mirrors defined in mirrorplanes
         std::vector<sm::mat<float, 4>> mirrors;
+
+        // The first/main eye could have a plane whose normal is the average of the orientations and
+        // origin is the mean location of the ommatidia.
+        oces::plane eye_plane;
 
         // If we have a head mesh, store it here
         oces::meshgroup head_mesh;
 
+        // Find a mean neighbour-to-neighbour distance. (EyeVisual does something like this, too,
+        // but it finds the min distance for *each* ommatidium rather than an average.
+        // While at it, find d_max - the maximum straight line distance between any pair of ommatidia
+        void compute_neighbour_distance()
+        {
+            std::uint32_t omm_per_eye = this->position.size();
+            if (!this->mirrorplanes.empty()) {
+                // Two eyes are stored in this->position.
+                omm_per_eye /= 2u;
+            }
+
+            if (omm_per_eye < 7) {
+                // we'd not fill nearest_6 with valid distances
+                std::cout << "compute_neighbour_distance(): Too few ommatidia for this function; returning\n";
+                return;
+            }
+
+            this->d_mean = 0.0f;
+            this->d_max = 0.0f;
+            for (std::uint32_t i = 0; i < omm_per_eye; ++i) {
+                sm::vec<float, 6> nearest_6 = {};
+                nearest_6.set_from (std::numeric_limits<float>::max());
+                const auto& pi = this->position[i];
+                for (std::uint32_t j = 0; j < omm_per_eye; ++j) {
+                    if (j == i) { continue; }
+                    const auto& pj = this->position[j];
+                    const float dij = (pi - pj).length();
+                    this->d_max = dij > this->d_max ? dij : this->d_max;
+                    for (std::uint32_t k = 0; k < 6; ++k) {
+                        if (dij < nearest_6[k]) {
+                            nearest_6[k] = dij;
+                            break;
+                        }
+                    }
+                }
+                this->d_mean += nearest_6.mean();
+            }
+            this->d_mean /= omm_per_eye;
+
+            std::cout << "Mean neighbour distance = " << this->d_mean << std::endl;
+        }
+
+        // Find the normal and origin of this->eye_plane
+        void find_eye_plane()
+        {
+            std::uint32_t omm_per_eye = this->orientation.size();
+            if (!this->mirrorplanes.empty()) {
+                // Two eyes are stored in this->orientation.
+                omm_per_eye /= 2u;
+            }
+            this->eye_plane.origin = {};
+            this->eye_plane.normal = {};
+            for (std::uint32_t i = 0; i < omm_per_eye; ++i) {
+                this->eye_plane.origin += this->position[i];
+                this->eye_plane.normal += this->orientation[i];
+            }
+            this->eye_plane.origin /= omm_per_eye;
+            this->eye_plane.normal.renormalize();
+        }
+
+        // Find the maximum fields of view both horizontal and vertical
         void compute_fov_max()
         {
             auto horz_fov_r = sm::interval<float>::search_initialized();
@@ -175,6 +247,8 @@ export namespace oces
         void postprocess()
         {
             this->eye.compute_fov_max();
+            this->eye.compute_neighbour_distance();
+            this->eye.find_eye_plane();
         }
 
         void read()
@@ -304,7 +378,7 @@ export namespace oces
                     auto mplanes = ev.Get("mirrorPlanes");
                     if (mplanes.IsArray()) {
                         for (size_t i = 0; i < mplanes.Size(); ++i) {
-                            oces::mirrorplane mp;
+                            oces::plane mp;
                             if (mplanes.Get(i).Get("normal").Get<std::string>() == "X"
                                 || mplanes.Get(i).Get("normal").Get<std::string>() == "FRONTAL"
                                 || mplanes.Get(i).Get("normal").Get<std::string>() == "LEFT"
@@ -347,7 +421,7 @@ export namespace oces
                                 if (posn.Size() == 3) {
                                     for (size_t j = 0; j < 3; ++j) {
                                         double element = posn.Get(j).Get<double>();
-                                        mp.position[j] = static_cast<float>(element);
+                                        mp.origin[j] = static_cast<float>(element);
                                     }
                                 } else {
                                     throw std::runtime_error ("mirror plane position specified with wrong number of dimensions");
@@ -395,7 +469,7 @@ export namespace oces
                     this->eye.diameter.resize (2 * sz);
                     this->eye.acceptance_angle.resize (2 * sz);
 
-                    sm::mat<float, 4> mirror = sm::mat<float, 4>::reflection (this->eye.mirrorplanes[0].position, this->eye.mirrorplanes[0].normal);
+                    sm::mat<float, 4> mirror = sm::mat<float, 4>::reflection (this->eye.mirrorplanes[0].origin, this->eye.mirrorplanes[0].normal);
                     this->eye.mirrors.push_back (mirror); // Saved for client code to use
                     for (size_t i = 0; i < sz; ++i) {
                         // Mirror position and direction
