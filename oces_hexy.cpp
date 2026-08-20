@@ -46,13 +46,13 @@ int main (int argc, char** argv)
     auto ommatidia = std::make_unique<std::vector<mplot::compoundray::Ommatidium>>();
     std::vector<std::array<float, 3>> ommatidiaColours;
     // Copy data into the ommatidia data structure
-    ommatidia->resize (oces_reader.position.size());
-    std::cerr << "Copying " << oces_reader.position.size() << " ommatidia\n";
-    for (size_t i = 0; i < oces_reader.position.size(); ++i) {
-        (*ommatidia)[i].relativePosition = oces_reader.position[i];
-        (*ommatidia)[i].relativeDirection = oces_reader.orientation[i];
-        (*ommatidia)[i].focalPointOffset = oces_reader.focal_offset[i];
-        (*ommatidia)[i].acceptanceAngleRadians = oces_reader.acceptance_angle[i];
+    ommatidia->resize (oces_reader.eye.position.size());
+    std::cerr << "Copying " << oces_reader.eye.position.size() << " ommatidia\n";
+    for (size_t i = 0; i < oces_reader.eye.position.size(); ++i) {
+        (*ommatidia)[i].relativePosition = oces_reader.eye.position[i];
+        (*ommatidia)[i].relativeDirection = oces_reader.eye.orientation[i];
+        (*ommatidia)[i].focalPointOffset = oces_reader.eye.focal_offset[i];
+        (*ommatidia)[i].acceptanceAngleRadians = oces_reader.eye.acceptance_angle[i];
     }
     // Make some dummy data to demo the eye
     sm::vvec<float> ommatidiaData;
@@ -63,9 +63,9 @@ int main (int argc, char** argv)
     for (size_t i = 0; i < ommatidia->size(); ++i) { ommatidiaColours[i] = cm.convert (ommatidiaData[i]); }
 
     mplot::meshgroup* head_mesh_ptr = nullptr;
-    if (!a_hidehead) { head_mesh_ptr = reinterpret_cast<mplot::meshgroup*>(&oces_reader.head_mesh); }
+    if (!a_hidehead) { head_mesh_ptr = reinterpret_cast<mplot::meshgroup*>(&oces_reader.eye.head_mesh); }
 
-    oces_reader.head_mesh.single_colour = {0.345f, 0.122f, 0.082f};
+    oces_reader.eye.head_mesh.single_colour = {0.345f, 0.122f, 0.082f};
     auto eyevm = std::make_unique<mplot::compoundray::EyeVisual<>> (sm::vec<>{}, &ommatidiaColours, ommatidia.get(), head_mesh_ptr);
     eyevm->set_parent (v.get_id());
     eyevm->name = "CompoundRay Eye";

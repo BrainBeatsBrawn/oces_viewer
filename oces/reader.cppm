@@ -51,12 +51,9 @@ export namespace oces
         std::array<float, 3> single_colour = {0};
     };
 
-    struct reader
+    // The OCES eye contains the actual data about the ommatidia in the eye
+    struct eye
     {
-        std::string filename;
-        std::string base_dir = "";
-
-        // These probably want to go into an 'eye' struct
         sm::vvec<sm::vec<float, 3>> position = {};    // Units: m
         sm::vvec<sm::vec<float, 3>> orientation = {}; // Units: m
         sm::vvec<float> focal_offset = {};            // Units: m
@@ -79,29 +76,9 @@ export namespace oces
         std::vector<oces::mirrorplane> mirrorplanes;
         // Store the matrix for the mirrors defined in mirrorplanes
         std::vector<sm::mat<float, 4>> mirrors;
-        // set true to ignore any mirrors
-        bool ignore_mirrors = false;
 
         // If we have a head mesh, store it here
         oces::meshgroup head_mesh;
-
-        bool read_success = false;
-
-        reader() {}
-
-        reader (const std::string& _filename, const bool& _ignore_mirrors = false)
-        {
-            this->filename = _filename;
-            this->ignore_mirrors = _ignore_mirrors;
-            this->read();
-            this->postprocess();
-        }
-
-        void read (const std::string& _filename)
-        {
-            this->filename = _filename;
-            this->read();
-        }
 
         void compute_fov_max()
         {
@@ -109,7 +86,7 @@ export namespace oces
             auto vert_fov_r = sm::interval<float>::search_initialized();
 
             std::uint32_t omm_per_eye = this->orientation.size();
-            if (!this->mirrorplanes.empty() && !this->ignore_mirrors) {
+            if (!this->mirrorplanes.empty()) {
                 // Two eyes are stored in this->orientation.
                 omm_per_eye /= 2u;
             }
@@ -148,10 +125,56 @@ export namespace oces
             this->vert_fov = vert_fov_r.max;
         }
 
+        void output_compound_ray_csv()
+        {
+            if (this->position.size() == this->orientation.size()
+                && this->position.size() == this->focal_offset.size()
+                && this->position.size() == this->acceptance_angle.size()) {
+                for (size_t i = 0; i < this->position.size(); ++i) {
+                    std::cout << this->position[i].str_comma_separated (' ') << " "
+                              << this->orientation[i].str_comma_separated (' ')
+                              << " " << this->acceptance_angle[i]
+                              << " " << std::abs(this->focal_offset[i])
+                              << std::endl;
+                }
+            } else {
+                std::cerr << "position, orientation, focal_offset and diameter/acceptance_angle should all have the same number of elements.\n";
+            }
+        }
+    };
+
+    struct reader
+    {
+        std::string filename;
+        std::string base_dir = "";
+
+        oces::eye eye;
+
+        // set true to ignore any mirrors while reading
+        bool ignore_mirrors = false;
+
+        bool read_success = false;
+
+        reader() {}
+
+        reader (const std::string& _filename, const bool& _ignore_mirrors = false)
+        {
+            this->filename = _filename;
+            this->ignore_mirrors = _ignore_mirrors;
+            this->read();
+            this->postprocess();
+        }
+
+        void read (const std::string& _filename)
+        {
+            this->filename = _filename;
+            this->read();
+        }
+
         // Stats etc to be computed after reading
         void postprocess()
         {
-            this->compute_fov_max();
+            this->eye.compute_fov_max();
         }
 
         void read()
@@ -264,16 +287,16 @@ export namespace oces
                 // Can now read the buffers into our member attributes position, orientation, etc
                 for (auto eye : eyes_OmmatidialProperties) {
                     int sz = static_cast<int>(ommatidialAccessors.size());
-                    if (eye["POSITION"] < sz) { this->get_buffer (model, ommatidialAccessors[eye["POSITION"]], this->position); }
-                    if (eye["ORIENTATION"] < sz) { this->get_buffer (model, ommatidialAccessors[eye["ORIENTATION"]], this->orientation); }
-                    if (eye["FOCAL_OFFSET"] < sz) { this->get_buffer (model, ommatidialAccessors[eye["FOCAL_OFFSET"]], this->focal_offset); }
-                    if (eye["DIAMETER"] < sz) { this->get_buffer (model, ommatidialAccessors[eye["DIAMETER"]], this->diameter); }
+                    if (eye["POSITION"] < sz) { this->get_buffer (model, ommatidialAccessors[eye["POSITION"]], this->eye.position); }
+                    if (eye["ORIENTATION"] < sz) { this->get_buffer (model, ommatidialAccessors[eye["ORIENTATION"]], this->eye.orientation); }
+                    if (eye["FOCAL_OFFSET"] < sz) { this->get_buffer (model, ommatidialAccessors[eye["FOCAL_OFFSET"]], this->eye.focal_offset); }
+                    if (eye["DIAMETER"] < sz) { this->get_buffer (model, ommatidialAccessors[eye["DIAMETER"]], this->eye.diameter); }
                 }
 
                 // Compound-ray eye files use acceptance angle, rather than optical lens diameter
-                this->acceptance_angle.resize (this->diameter.size(), 0.0f);
-                for (size_t i = 0; i < this->diameter.size(); i++) {
-                    this->acceptance_angle[i] = 2.0f * std::atan2 (this->diameter[i] / 2.0f, std::abs (this->focal_offset[i]));
+                this->eye.acceptance_angle.resize (this->eye.diameter.size(), 0.0f);
+                for (size_t i = 0; i < this->eye.diameter.size(); i++) {
+                    this->eye.acceptance_angle[i] = 2.0f * std::atan2 (this->eye.diameter[i] / 2.0f, std::abs (this->eye.focal_offset[i]));
                 }
 
                 // Read "mirrorPlanes" from "OCES_eyes"
@@ -331,59 +354,59 @@ export namespace oces
                                 }
                             }
 
-                            this->mirrorplanes.push_back (mp);
+                            this->eye.mirrorplanes.push_back (mp);
                         }
                     }
                 }
 
                 // Compute statistics on the eye
-                std::cerr << "Number of ommatidia: " << this->position.size() << std::endl;
+                std::cerr << "Number of ommatidia: " << this->eye.position.size() << std::endl;
                 std::cerr << "Optical diameter mean/std: "
-                          << this->diameter.mean() << " (" << this->diameter.std() << ")\n";
+                          << this->eye.diameter.mean() << " (" << this->eye.diameter.std() << ")\n";
                 std::cerr << "Acceptance angle mean/std degrees: "
-                          << this->acceptance_angle.mean() * sm::mathconst<float>::rad2deg
-                          << " (" << this->acceptance_angle.std() * sm::mathconst<float>::rad2deg << ")\n";
+                          << this->eye.acceptance_angle.mean() * sm::mathconst<float>::rad2deg
+                          << " (" << this->eye.acceptance_angle.std() * sm::mathconst<float>::rad2deg << ")\n";
                 // FOV
                 // Find mean direction
                 sm::vec<float> mean_dir = {};
-                for (auto ori : this->orientation) {
+                for (auto ori : this->eye.orientation) {
                     sm::vec<float> orient = ori;
                     orient.renormalize();
                     mean_dir += orient;
                 }
-                mean_dir /= this->orientation.size();
+                mean_dir /= this->eye.orientation.size();
                 sm::vvec<float> ang_from_mean;
-                for (auto ori : this->orientation) {
+                for (auto ori : this->eye.orientation) {
                     auto a = ori.angle (mean_dir);
                     ang_from_mean.push_back (a);
                 }
                 std::cerr << "ang_from_mean max " << ang_from_mean.max() * sm::mathconst<float>::rad2deg << std::endl;
 
                 // Act on mirror planes and add to position arrays
-                if (!this->mirrorplanes.empty() && !this->ignore_mirrors) {
+                if (!this->eye.mirrorplanes.empty() && !this->ignore_mirrors) {
 
                     // Get size for one eye
-                    size_t sz = this->position.size();
+                    size_t sz = this->eye.position.size();
 
                     // Make space
-                    this->position.resize (2 * sz);
-                    this->orientation.resize (2 * sz);
-                    this->focal_offset.resize (2 * sz);
-                    this->diameter.resize (2 * sz);
-                    this->acceptance_angle.resize (2 * sz);
+                    this->eye.position.resize (2 * sz);
+                    this->eye.orientation.resize (2 * sz);
+                    this->eye.focal_offset.resize (2 * sz);
+                    this->eye.diameter.resize (2 * sz);
+                    this->eye.acceptance_angle.resize (2 * sz);
 
-                    sm::mat<float, 4> mirror = sm::mat<float, 4>::reflection (this->mirrorplanes[0].position, this->mirrorplanes[0].normal);
-                    this->mirrors.push_back (mirror); // Saved for client code to use
+                    sm::mat<float, 4> mirror = sm::mat<float, 4>::reflection (this->eye.mirrorplanes[0].position, this->eye.mirrorplanes[0].normal);
+                    this->eye.mirrors.push_back (mirror); // Saved for client code to use
                     for (size_t i = 0; i < sz; ++i) {
                         // Mirror position and direction
-                        sm::vec<float> mpos = (mirror * this->position[i]).less_one_dim();
-                        sm::vec<float> mdir = (mirror * this->orientation[i]).less_one_dim();
-                        position[sz + i] = mpos;
-                        orientation[sz + i] = mdir;
+                        sm::vec<float> mpos = (mirror * this->eye.position[i]).less_one_dim();
+                        sm::vec<float> mdir = (mirror * this->eye.orientation[i]).less_one_dim();
+                        this->eye.position[sz + i] = mpos;
+                        this->eye.orientation[sz + i] = mdir;
                         // Focal offset, diameter and acceptance angle are simply copied
-                        focal_offset[sz + i] = focal_offset[i];
-                        diameter[sz + i] = diameter[i];
-                        acceptance_angle[sz + i] = acceptance_angle[i];
+                        this->eye.focal_offset[sz + i] = this->eye.focal_offset[i];
+                        this->eye.diameter[sz + i] = this->eye.diameter[i];
+                        this->eye.acceptance_angle[sz + i] = this->eye.acceptance_angle[i];
                     }
                 }
             }
@@ -494,7 +517,7 @@ export namespace oces
                     for (auto& gltf_primitive : gltf_mesh.primitives) {
                         if (gltf_primitive.mode != TINYGLTF_MODE_TRIANGLES) { throw std::runtime_error ("Non-triangle primitive"); }
                         std::cerr << "Have head mesh; reading it\n";
-                        head_mesh.name = gltf_mesh.name;
+                        this->eye.head_mesh.name = gltf_mesh.name;
                         // Indices
                         {
                             const tinygltf::Accessor& _accessor = model.accessors[gltf_primitive.indices];
@@ -502,37 +525,37 @@ export namespace oces
                             const int32_t cmpts_in_type  = tinygltf::GetNumComponentsInType (_accessor.type);
                             if (cmpts_in_type != 1) { throw std::runtime_error ("Expect 1 component in type for indices"); }
                             if (elmt_cmpt_byte_size == 4) {
-                                this->get_buffer<uint32_t> (model, gltf_primitive.indices, head_mesh.indices);
+                                this->get_buffer<uint32_t> (model, gltf_primitive.indices, this->eye.head_mesh.indices);
                             } else if (elmt_cmpt_byte_size == 2) {
                                 std::vector<uint16_t> hmi16;
                                 this->get_buffer<uint16_t> (model, gltf_primitive.indices, hmi16);
                                 // copy to head_mesh.indices
-                                head_mesh.indices.resize (hmi16.size());
-                                for (uint32_t i = 0; i < hmi16.size(); ++i) { head_mesh.indices[i] = hmi16[i]; }
+                                this->eye.head_mesh.indices.resize (hmi16.size());
+                                for (uint32_t i = 0; i < hmi16.size(); ++i) { this->eye.head_mesh.indices[i] = hmi16[i]; }
                             } else {
                                 throw std::runtime_error ("Deal with 1 byte or 8 byte index size");
                             }
                         }
-                        head_mesh.transform = node_xform;
-                        if constexpr (debug_gltf == true) { std::cerr << "\t\tNum triangles is indices size/3: " << head_mesh.indices.size() / 3 << std::endl; }
+                        this->eye.head_mesh.transform = node_xform;
+                        if constexpr (debug_gltf == true) { std::cerr << "\t\tNum triangles is indices size/3: " << this->eye.head_mesh.indices.size() / 3 << std::endl; }
                         // Positions
                         assert (gltf_primitive.attributes.find( "POSITION" ) !=  gltf_primitive.attributes.end());
                         const int32_t pos_accessor_idx = gltf_primitive.attributes.at ("POSITION");
-                        this->get_buffer<sm::vec<float>> (model, pos_accessor_idx, head_mesh.positions);
-                        if constexpr (debug_gltf == true) { std::cerr << "\t\tNum vertices(positions count): " << head_mesh.positions.size() << std::endl; }
+                        this->get_buffer<sm::vec<float>> (model, pos_accessor_idx, this->eye.head_mesh.positions);
+                        if constexpr (debug_gltf == true) { std::cerr << "\t\tNum vertices(positions count): " << this->eye.head_mesh.positions.size() << std::endl; }
 
                         const auto& pos_gltf_accessor = model.accessors[pos_accessor_idx];
                         sm::vec<double> minvals = { pos_gltf_accessor.minValues[0], pos_gltf_accessor.minValues[1], pos_gltf_accessor.minValues[2] };
                         sm::vec<double> maxvals = { pos_gltf_accessor.maxValues[0], pos_gltf_accessor.maxValues[1], pos_gltf_accessor.maxValues[2] };
-                        head_mesh.object_aabb = sm::interval<sm::vec<float>> (minvals.as<float>(), maxvals.as<float>());
-                        head_mesh.world_aabb = sm::interval<sm::vec<float>> ((node_xform * head_mesh.object_aabb.min).less_one_dim(),
-                                                                             (node_xform * head_mesh.object_aabb.max).less_one_dim());
+                        this->eye.head_mesh.object_aabb = sm::interval<sm::vec<float>> (minvals.as<float>(), maxvals.as<float>());
+                        this->eye.head_mesh.world_aabb = sm::interval<sm::vec<float>> ((node_xform * this->eye.head_mesh.object_aabb.min).less_one_dim(),
+                                                                                       (node_xform * this->eye.head_mesh.object_aabb.max).less_one_dim());
                         // Normals
                         auto normal_accessor_iter = gltf_primitive.attributes.find ("NORMAL");
                         if (normal_accessor_iter != gltf_primitive.attributes.end()) {
                             if constexpr (debug_gltf == true) { std::cerr << "\t\tHas vertex normals: true\n"; }
                             const int32_t normal_accessor_idx = gltf_primitive.attributes.at ("NORMAL");
-                            this->get_buffer<sm::vec<float>> (model, normal_accessor_idx, head_mesh.normals);
+                            this->get_buffer<sm::vec<float>> (model, normal_accessor_idx, this->eye.head_mesh.normals);
                         }
                         // omit to read texture coordinates
                         // omit handling of vertex colours
@@ -546,22 +569,7 @@ export namespace oces
             }
         }
 
-        void output_compound_ray_csv()
-        {
-            if (this->position.size() == this->orientation.size()
-                && this->position.size() == this->focal_offset.size()
-                && this->position.size() == this->acceptance_angle.size()) {
-                for (size_t i = 0; i < this->position.size(); ++i) {
-                    std::cout << this->position[i].str_comma_separated (' ') << " "
-                              << this->orientation[i].str_comma_separated (' ')
-                              << " " << this->acceptance_angle[i]
-                              << " " << std::abs(this->focal_offset[i])
-                              << std::endl;
-                }
-            } else {
-                std::cerr << "position, orientation, focal_offset and diameter/acceptance_angle should all have the same number of elements.\n";
-            }
-        }
+        void output_compound_ray_csv() { this->eye.output_compound_ray_csv(); }
     };
 
 } // namespace oces
