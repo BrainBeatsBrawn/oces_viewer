@@ -435,11 +435,11 @@ int main (int argc, char** argv)
     v.addVisualModel (sv);
 
     // Add a HexGridVisual to display the HexGrid within the sm::Visual scene
-    sm::vvec<float> hzdata (heye.hg.num(), 0.0f);
+    //sm::vvec<float> hzdata (heye.hg.num(), 0.0f);
     auto hgv = std::make_unique<mplot::HexGridVisual<float>>(&heye.hg, sm::vec<>{});
     hgv->set_parent (v.get_id());
     hgv->cm.setType (mplot::ColourMapType::Ice);
-    hgv->setScalarData (&hzdata);
+    hgv->setScalarData (&heye.hg_z);
     hgv->showcentre = true;
     hgv->markedHexes.insert (1);
     hgv->hexVisMode = mplot::HexVisMode::HexInterp; // Or sm::HexVisMode::Triangles for a smoother surface plot
