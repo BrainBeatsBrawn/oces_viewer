@@ -10,6 +10,7 @@
 #include <args/args.hxx> // github.com/Taywee/args
 
 import oces.reader;
+import oces.hexeye;
 import mplot.visual;
 import mplot.spherevisual;
 import mplot.colourbarvisual;
@@ -18,8 +19,10 @@ import mplot.quivervisual;
 import mplot.planevisual;
 import mplot.vectorvisual;
 import mplot.scattervisual;
+import mplot.hexgridvisual;
 import mplot.compoundray.eyevisual;
 import sm.flags;
+import sm.centroid;
 
 // Enumerate our view options
 enum class viewopts : std::uint32_t
@@ -210,6 +213,9 @@ int main (int argc, char** argv)
     oces::reader oces_reader (filename, (a_hidemirror ? true : false));
     if (oces_reader.read_success == false) { return -1; }
 
+    // Make a hex eye
+    oces::hexeye heye (oces_reader.eye);
+
     // Could have:
     // oces_reader.make_hex_equivalent();
     // or
@@ -362,13 +368,14 @@ int main (int argc, char** argv)
     auto pvm = std::make_unique<mplot::PlaneVisual<>>(1000.0f * oces_reader.eye.eye_plane.p.origin);
     pvm->set_parent (v.get_id());
     pvm->normal = oces_reader.eye.eye_plane.p.normal;
-    pvm->show_normal = true;
+    pvm->show_normal = false;
     pvm->colour = mplot::colour::grey70;
     pvm->dim1 = 1.0;
     pvm->setAlpha (0.5f);
     pvm->finalize();
     v.addVisualModel (pvm);
 
+#if 0
     // Show forwards, z, projected into plane
     auto vvm = std::make_unique<mplot::VectorVisual<float, 3>>(1000.0f * oces_reader.eye.eye_plane.p.origin);
     vvm->set_parent (v.get_id());
@@ -390,7 +397,7 @@ int main (int argc, char** argv)
     vvm->single_colour = mplot::colour::springgreen2;
     vvm->finalize();
     v.addVisualModel (vvm);
-
+#endif
     sm::vvec<float> zdata (oces_reader.eye.eye_plane_coordinates.size());
     for (std::uint32_t i = 0; i < zdata.size(); ++i) {
         zdata[i] = oces_reader.eye.eye_plane_coordinates[i][2];
@@ -405,6 +412,40 @@ int main (int argc, char** argv)
     sv->finalize();
     sv->scaleViewMatrix (1000.0f); // Tiny ant eyes are scaled by a big factor to be in more useable model units
     v.addVisualModel (sv);
+
+    // Just the central omms
+    sm::vvec<sm::vec<float>> c_omms;
+    auto thecentroid = sm::algo::centroid (oces_reader.eye.eye_plane_coordinates);
+    c_omms.push_back (thecentroid);
+    c_omms.push_back (oces_reader.eye.eye_plane_coordinates[oces_reader.eye.central_omm]);
+    for (std::uint32_t k = 0; k < 6; ++k) {
+        c_omms.push_back (oces_reader.eye.central_neighbours[k]);
+    }
+    sm::vvec<float> c_ommsz (c_omms.size(), 0.0f);
+    c_ommsz[0] = 1.0f; // yellow centroid
+    c_ommsz[1] = 0.66f; // orange central omm
+    sv = std::make_unique<mplot::ScatterVisual<float>> (sm::vec<>{});
+    sv->set_parent (v.get_id());
+    sv->setDataCoords (&c_omms);
+    sv->setScalarData (&c_ommsz);
+    sv->radiusFixed = 0.000007f;
+    sv->cm.setType (mplot::ColourMapType::Plasma);
+    sv->finalize();
+    sv->scaleViewMatrix (1000.0f);
+    v.addVisualModel (sv);
+
+    // Add a HexGridVisual to display the HexGrid within the sm::Visual scene
+    sm::vvec<float> hzdata (heye.hg.num(), 0.0f);
+    auto hgv = std::make_unique<mplot::HexGridVisual<float>>(&heye.hg, sm::vec<>{});
+    hgv->set_parent (v.get_id());
+    hgv->cm.setType (mplot::ColourMapType::Ice);
+    hgv->setScalarData (&hzdata);
+    hgv->showcentre = true;
+    hgv->markedHexes.insert (1);
+    hgv->hexVisMode = mplot::HexVisMode::HexInterp; // Or sm::HexVisMode::Triangles for a smoother surface plot
+    hgv->finalize();
+    hgv->scaleViewMatrix (1000.0f);
+    v.addVisualModel (hgv);
 
     auto aar = oces_reader.eye.acceptance_angle.range();
     std::cout << "Acceptance angle range: "

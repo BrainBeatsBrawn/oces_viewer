@@ -49,9 +49,6 @@ set(OCES_VM_MODULES
   ${MPLOT_INCLUDE_PATH}/mplot/SphereVisual.cppm
   ${MPLOT_INCLUDE_PATH}/mplot/ColourBarVisual.cppm
   ${MPLOT_INCLUDE_PATH}/mplot/QuiverVisual.cppm
-  ${MPLOT_INCLUDE_PATH}/mplot/PlaneVisual.cppm
-  ${MPLOT_INCLUDE_PATH}/mplot/VectorVisual.cppm
-  ${MPLOT_INCLUDE_PATH}/mplot/ScatterVisual.cppm
   ${SM_JCV_MODULES}
   ${MPLOT_INCLUDE_PATH}/mplot/compoundray/EyeVisual.cppm
 )
@@ -71,10 +68,20 @@ target_sources(oces_viewer
 )
 target_link_libraries(oces_viewer OpenGL::GL Freetype::Freetype glfw glad mplot_fontdata)
 
+set(OCES_HEXY_MODULES
+  ${OCES_VIEWER_MODULES}
+  ${OCES_HEXEYE_MODULES}
+  ${MPLOT_INCLUDE_PATH}/mplot/HexGridVisual.cppm
+  ${MPLOT_INCLUDE_PATH}/mplot/PlaneVisual.cppm
+  ${MPLOT_INCLUDE_PATH}/mplot/VectorVisual.cppm
+  ${MPLOT_INCLUDE_PATH}/mplot/ScatterVisual.cppm
+)
+list(REMOVE_DUPLICATES OCES_HEXY_MODULES)
+
 add_executable(oces_hexy oces_hexy.cpp)
 target_sources(oces_hexy
   PUBLIC FILE_SET CXX_MODULES BASE_DIRS ${PROJECT_SOURCE_DIR}
-  FILES ${OCES_VIEWER_MODULES}
+  FILES ${OCES_HEXY_MODULES}
 )
 target_link_libraries(oces_hexy OpenGL::GL Freetype::Freetype glfw glad mplot_fontdata)
 

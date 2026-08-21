@@ -28,6 +28,7 @@ export import sm.vvec;
 export import sm.vec;
 export import sm.mat;
 export import sm.geometry;
+import sm.centroid;
 
 export namespace oces
 {
@@ -95,6 +96,13 @@ export namespace oces
         // Mean neighbour-neighbour distance of the closest 6 ommatidial neighbours
         float d_mean = 0.0f;
 
+        // Most central ommatidium index
+        std::uint32_t central_omm = std::numeric_limits<std::uint32_t>::max();
+        // Neighbour indices
+        sm::vec<sm::vec<float>, 6> central_neighbours = {};
+        // The angles
+        sm::vec<float, 6> central_neighbour_angles;
+
         // Maximum distance between any two ommatidia in the eye (just one, not a mirrored pair)
         float d_max = 0.0f;
 
@@ -112,6 +120,70 @@ export namespace oces
 
         // If we have a head mesh, store it here
         oces::meshgroup head_mesh;
+
+        // Ready to be used?
+        bool ready = false;
+
+        // Common function to find number of ommatidium in a single eye
+        std::uint32_t get_omm_per_eye() const
+        {
+            std::uint32_t omm_per_eye = this->orientation.size();
+            if (!this->mirrorplanes.empty()) {
+                // Two eyes are stored in this->orientation.
+                omm_per_eye /= 2u;
+            }
+            return omm_per_eye;
+        }
+
+        // In eye plane
+        void compute_central()
+        {
+            // find the most central OMM
+            const std::uint32_t omm_per_eye = this->get_omm_per_eye();
+
+            auto ctrd = sm::algo::centroid (this->eye_plane_coordinates).less_one_dim();
+
+            float min_d_c = std::numeric_limits<float>::max();
+            for (std::uint32_t i = 0; i < omm_per_eye; ++i) {
+                sm::vec<float, 2> pi = this->eye_plane_coordinates[i].less_one_dim();
+                float d_c = (pi - ctrd).length();
+                if (d_c < min_d_c) {
+                    this->central_omm = i;
+                    min_d_c = d_c;
+                }
+            }
+            std::cout << "Central OMM is index " << this->central_omm << std::endl;
+
+            if (central_omm > this->eye_plane_coordinates.size()) {
+                std::cout << "Out of range of position?\n";
+                return;
+            }
+
+            sm::vec<float, 6> nearest_6 = {};
+            nearest_6.set_from (std::numeric_limits<float>::max());
+            const auto& pi = this->eye_plane_coordinates[this->central_omm];
+            for (std::uint32_t j = 0; j < omm_per_eye; ++j) {
+                if (j == this->central_omm) { continue; }
+                const auto& pj = this->eye_plane_coordinates[j];
+                const float dij = (pi - pj).length();
+                // If dij is less than any, replace the biggest
+                auto kbig = nearest_6.argmax();
+                for (std::uint32_t k = 0; k < 6; ++k) {
+                    if (dij <= nearest_6[k]) {
+                        nearest_6[kbig] = dij;
+                        this->central_neighbours[kbig] = pj;
+                        break;
+                    }
+                }
+            }
+
+            std::cout << "Nearest neighbours are at: ";
+            for (std::uint32_t k = 0; k < 6; ++k) {
+                std::cout << this->central_neighbours[k] << ", angle ";
+                this->central_neighbour_angles[k] = pi.less_one_dim().angle (this->central_neighbours[k].less_one_dim());
+                std::cout << this->central_neighbour_angles[k] << std::endl;
+            }
+        }
 
         // Find a mean neighbour-to-neighbour distance. (EyeVisual does something like this, too,
         // but it finds the min distance for *each* ommatidium rather than an average.
@@ -137,9 +209,11 @@ export namespace oces
                     const auto& pj = this->position[j];
                     const float dij = (pi - pj).length();
                     this->d_max = dij > this->d_max ? dij : this->d_max;
+                    // If dij is less than any, replace the biggest
+                    auto kbig = nearest_6.argmax();
                     for (std::uint32_t k = 0; k < 6; ++k) {
-                        if (dij < nearest_6[k]) {
-                            nearest_6[k] = dij;
+                        if (dij <= nearest_6[k]) {
+                            nearest_6[kbig] = dij;
                             break;
                         }
                     }
@@ -149,17 +223,6 @@ export namespace oces
             this->d_mean /= omm_per_eye;
 
             std::cout << "Mean neighbour distance = " << this->d_mean << std::endl;
-        }
-
-        // Common function to find number of ommatidium in a single eye
-        std::uint32_t get_omm_per_eye() const
-        {
-            std::uint32_t omm_per_eye = this->orientation.size();
-            if (!this->mirrorplanes.empty()) {
-                // Two eyes are stored in this->orientation.
-                omm_per_eye /= 2u;
-            }
-            return omm_per_eye;
         }
 
         // Project each ommatidium position onto the eye plane. This becomes a vector of 3D values
@@ -173,7 +236,7 @@ export namespace oces
 
             for (std::uint32_t i = 0; i < omm_per_eye; ++i) {
                 this->eye_plane_coordinates[i] = (this->eye_plane.eye_to_oces.inverse() * this->position[i]).less_one_dim();
-                std::cout << "eye plane coord " << i << ": " << this->eye_plane_coordinates[i] << std::endl;
+                //std::cout << "eye plane coord " << i << ": " << this->eye_plane_coordinates[i] << std::endl;
             }
         }
 
@@ -273,6 +336,7 @@ export namespace oces
         // set true to ignore any mirrors while reading
         bool ignore_mirrors = false;
 
+        // Set true after the OCES file has been read
         bool read_success = false;
 
         reader() {}
@@ -298,6 +362,8 @@ export namespace oces
             this->eye.compute_neighbour_distance();
             this->eye.compute_eye_plane();
             this->eye.compute_projections_on_eye_plane();
+            this->eye.compute_central();
+            this->eye.ready = true;
         }
 
         void read()
