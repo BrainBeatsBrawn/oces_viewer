@@ -12,6 +12,7 @@ export import oces.reader;
 
 export import sm.hexgrid;
 //export import sm.hexgrid_hdf; // probably
+import sm.vvec;
 
 export namespace oces
 {

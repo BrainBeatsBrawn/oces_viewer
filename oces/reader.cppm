@@ -31,10 +31,24 @@ export import sm.geometry;
 
 export namespace oces
 {
+    // A 2D plane in 3D, defined by an origin and a normal
     struct plane
     {
         sm::vec<float> origin = {};
-        sm::vec<float> normal = {1, 0, 0};
+        sm::vec<float> normal = sm::vec<float>::uz();
+    };
+
+    // For an *eye* plane, we define a 'forwards' vector in the plane, which is derived from the
+    // uz() direction in the OCES frame of reference. This is therefore a coordinate frame.
+    struct eyeplane
+    {
+        oces::plane p;
+        // ez is p.normal
+        sm::vec<float> ex = sm::vec<float>::ux();
+        sm::vec<float> ey = sm::vec<float>::uy();
+        // This transform takes a coordinate in the eye frame, and converts it to a coordinate in
+        // the OCES model frame.
+        sm::mat<float, 4> eye_to_oces = {};
     };
 
     // This struct matches the layout of mplot::meshgroup
@@ -61,6 +75,11 @@ export namespace oces
         sm::vvec<float> diameter = {};                // Optical diameter. Units: m
         sm::vvec<float> acceptance_angle = {};        // Derived from diameter and focal offset. Units: radians.
 
+        // position, projected onto the eye plane, and in the coordinate system defined by the eye
+        // plane's normal (and what other vector? Probably a projection of uz, the forward axis in
+        // the world.). Maybe just need transform * position.
+        sm::vvec<sm::vec<float, 3>> eye_plane_coordinates = {};
+
         // Horizontal field of view (about the up axis, which is y in OCES)
         float horz_fov = 0.0f;
         // Vertical field of view (about the fwds axis, which is z in OCES)
@@ -85,8 +104,11 @@ export namespace oces
         std::vector<sm::mat<float, 4>> mirrors;
 
         // The first/main eye could have a plane whose normal is the average of the orientations and
-        // origin is the mean location of the ommatidia.
-        oces::plane eye_plane;
+        // origin is the mean location of the ommatidia. It also has an 'x' axis related to the 'z'
+        // axis in the world frame. note that this plane has nothing to do with the OCES standard;
+        // it's an addition by Seb to help replace the arbitrary, measured ommatidial positions with
+        // an equivalent, perfectly hexagonal grid of ommatidia for simulation-friendly eyes.
+        oces::eyeplane eye_plane;
 
         // If we have a head mesh, store it here
         oces::meshgroup head_mesh;
@@ -96,11 +118,7 @@ export namespace oces
         // While at it, find d_max - the maximum straight line distance between any pair of ommatidia
         void compute_neighbour_distance()
         {
-            std::uint32_t omm_per_eye = this->position.size();
-            if (!this->mirrorplanes.empty()) {
-                // Two eyes are stored in this->position.
-                omm_per_eye /= 2u;
-            }
+            const std::uint32_t omm_per_eye = this->get_omm_per_eye();
 
             if (omm_per_eye < 7) {
                 // we'd not fill nearest_6 with valid distances
@@ -133,22 +151,56 @@ export namespace oces
             std::cout << "Mean neighbour distance = " << this->d_mean << std::endl;
         }
 
-        // Find the normal and origin of this->eye_plane
-        void find_eye_plane()
+        // Common function to find number of ommatidium in a single eye
+        std::uint32_t get_omm_per_eye() const
         {
             std::uint32_t omm_per_eye = this->orientation.size();
             if (!this->mirrorplanes.empty()) {
                 // Two eyes are stored in this->orientation.
                 omm_per_eye /= 2u;
             }
-            this->eye_plane.origin = {};
-            this->eye_plane.normal = {};
+            return omm_per_eye;
+        }
+
+        // Project each ommatidium position onto the eye plane. This becomes a vector of 3D values
+        // that have their first two coordinates in the plane, with the third coordinate being the
+        // height above/below the plane.
+        void compute_projections_on_eye_plane()
+        {
+            const std::uint32_t omm_per_eye = this->get_omm_per_eye();
+
+            this->eye_plane_coordinates.resize (omm_per_eye, {});
+
             for (std::uint32_t i = 0; i < omm_per_eye; ++i) {
-                this->eye_plane.origin += this->position[i];
-                this->eye_plane.normal += this->orientation[i];
+                this->eye_plane_coordinates[i] = (this->eye_plane.eye_to_oces.inverse() * this->position[i]).less_one_dim();
+                std::cout << "eye plane coord " << i << ": " << this->eye_plane_coordinates[i] << std::endl;
             }
-            this->eye_plane.origin /= omm_per_eye;
-            this->eye_plane.normal.renormalize();
+        }
+
+        // Find the normal and origin of this->eye_plane
+        void compute_eye_plane()
+        {
+            const std::uint32_t omm_per_eye = this->get_omm_per_eye();
+            this->eye_plane.p.origin = {};
+            this->eye_plane.p.normal = {};
+            for (std::uint32_t i = 0; i < omm_per_eye; ++i) {
+                this->eye_plane.p.origin += this->position[i];
+                this->eye_plane.p.normal += this->orientation[i];
+            }
+            this->eye_plane.p.origin /= omm_per_eye;
+            this->eye_plane.p.normal.renormalize();
+            this->eye_plane.ey = this->eye_plane.p.normal.cross (sm::vec<float>::uz());
+            this->eye_plane.ey.renormalize();
+            this->eye_plane.ex = this->eye_plane.ey.cross (this->eye_plane.p.normal); // guaranteed unit vector
+
+            std::cout << "Length checks: ["
+                      << this->eye_plane.ex.length() << ", "
+                      << this->eye_plane.ey.length() << ", "
+                      << this->eye_plane.p.normal.length() << "]\n";
+
+            this->eye_plane.eye_to_oces.frombasis_inplace (this->eye_plane.ex, this->eye_plane.ey, this->eye_plane.p.normal);
+            // That covers the rotation between the bases, but we also need a translation:
+            this->eye_plane.eye_to_oces.pretranslate (this->eye_plane.p.origin);
         }
 
         // Find the maximum fields of view both horizontal and vertical
@@ -157,11 +209,7 @@ export namespace oces
             auto horz_fov_r = sm::interval<float>::search_initialized();
             auto vert_fov_r = sm::interval<float>::search_initialized();
 
-            std::uint32_t omm_per_eye = this->orientation.size();
-            if (!this->mirrorplanes.empty()) {
-                // Two eyes are stored in this->orientation.
-                omm_per_eye /= 2u;
-            }
+            const std::uint32_t omm_per_eye = this->get_omm_per_eye();
 
             this->h_plane_orientation.resize (omm_per_eye);
             this->v_plane_orientation.resize (omm_per_eye);
@@ -248,7 +296,8 @@ export namespace oces
         {
             this->eye.compute_fov_max();
             this->eye.compute_neighbour_distance();
-            this->eye.find_eye_plane();
+            this->eye.compute_eye_plane();
+            this->eye.compute_projections_on_eye_plane();
         }
 
         void read()
