@@ -298,8 +298,8 @@ int main (int argc, char** argv)
     origin_ca->em = 0.0f;
     float len = 2.0f;
     origin_ca->lengths = { len, len, len };
-    origin_ca->thickness = 1.0f;
-    origin_ca->endsphere_size = 1.2f;
+    origin_ca->thickness = 0.1f;
+    origin_ca->endsphere_size = 0.02f;
     origin_ca->finalize();
     auto oces_origin = v.addVisualModel (origin_ca);
     oces_origin->setHide (v.view_options.test (viewopts::show_origin) == false);
