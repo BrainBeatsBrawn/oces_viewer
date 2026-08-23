@@ -75,6 +75,7 @@ set(OCES_HEXY_MODULES
   ${MPLOT_INCLUDE_PATH}/mplot/PlaneVisual.cppm
   ${MPLOT_INCLUDE_PATH}/mplot/VectorVisual.cppm
   ${MPLOT_INCLUDE_PATH}/mplot/ScatterVisual.cppm
+  ${MPLOT_INCLUDE_PATH}/mplot/BezCurvePathVisual.cppm
 )
 list(REMOVE_DUPLICATES OCES_HEXY_MODULES)
 

@@ -20,6 +20,7 @@ import mplot.planevisual;
 import mplot.vectorvisual;
 import mplot.scattervisual;
 import mplot.hexgridvisual;
+import mplot.bezcurvepathvisual;
 import mplot.compoundray.eyevisual;
 import sm.flags;
 import sm.centroid;
@@ -407,10 +408,11 @@ int main (int argc, char** argv)
     sv->set_parent (v.get_id());
     sv->setDataCoords (&oces_reader.eye.eye_plane_coordinates);
     sv->setScalarData (&zdata);
-    sv->radiusFixed = 0.000005f;
+    sv->radiusFixed = 0.000001f;
     sv->cm.setType (mplot::ColourMapType::Jet);
     sv->finalize();
     sv->scaleViewMatrix (1000.0f); // Tiny ant eyes are scaled by a big factor to be in more useable model units
+    sv->setAlpha (0.5f);
     v.addVisualModel (sv);
 
     // Just the central omms
@@ -428,8 +430,20 @@ int main (int argc, char** argv)
     sv->set_parent (v.get_id());
     sv->setDataCoords (&c_omms);
     sv->setScalarData (&c_ommsz);
-    sv->radiusFixed = 0.000007f;
+    sv->radiusFixed = 0.0000015f;
     sv->cm.setType (mplot::ColourMapType::Plasma);
+    sv->finalize();
+    sv->scaleViewMatrix (1000.0f);
+    v.addVisualModel (sv);
+
+    // 'Extra coords'
+    sm::vvec<float> sde (heye.extra_coordinates.size(), 0.0f);
+    sv = std::make_unique<mplot::ScatterVisual<float>> (sm::vec<>{});
+    sv->set_parent (v.get_id());
+    sv->setDataCoords (&heye.extra_coordinates);
+    sv->setScalarData (&sde);
+    sv->radiusFixed = 0.000007f;
+    sv->cm.setType (mplot::ColourMapType::Ice);
     sv->finalize();
     sv->scaleViewMatrix (1000.0f);
     v.addVisualModel (sv);
@@ -440,12 +454,33 @@ int main (int argc, char** argv)
     hgv->set_parent (v.get_id());
     hgv->cm.setType (mplot::ColourMapType::Ice);
     hgv->setScalarData (&heye.hg_z);
-    hgv->showcentre = true;
-    hgv->markedHexes.insert (1);
+    //hgv->showcentre = true;
+    //hgv->markedHexes.insert (1);
     hgv->hexVisMode = mplot::HexVisMode::HexInterp; // Or sm::HexVisMode::Triangles for a smoother surface plot
     hgv->finalize();
     hgv->scaleViewMatrix (1000.0f);
     v.addVisualModel (hgv);
+
+    hgv = std::make_unique<mplot::HexGridVisual<float>>(&heye.hg, sm::vec<>{0.4});
+    hgv->set_parent (v.get_id());
+    hgv->cm.setType (mplot::ColourMapType::Ice);
+    hgv->setScalarData (&heye.hg_z);
+    //hgv->showcentre = true;
+    hgv->hexVisMode = mplot::HexVisMode::HexInterp; // Or sm::HexVisMode::Triangles for a smoother surface plot
+    hgv->finalize();
+    hgv->scaleViewMatrix (1000.0f);
+    v.addVisualModel (hgv);
+
+    // Show the boundary that we make use of
+    auto bcpv = std::make_unique<mplot::BezCurvePathVisual<float, 3>> (sm::vec<>{});
+    bcpv->set_parent (v.get_id());
+    bcpv->bcp = &heye.bcp;
+    bcpv->invert_y = true;
+    bcpv->step  = 0.00001f;
+    bcpv->width = bcpv->step / 5.0f;
+    bcpv->finalize();
+    bcpv->scaleViewMatrix (1000.0f);
+    v.addVisualModel (bcpv);
 
     auto aar = oces_reader.eye.acceptance_angle.range();
     std::cout << "Acceptance angle range: "

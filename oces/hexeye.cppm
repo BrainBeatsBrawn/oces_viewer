@@ -15,7 +15,7 @@ export import sm.hexgrid;
 //export import sm.hexgrid_hdf; // probably
 import sm.vvec;
 import sm.mat;
-import sm.bezcurvepath;
+export import sm.bezcurvepath;
 import sm.bezcurve;
 import sm.centroid;
 import sm.algo;
@@ -90,12 +90,62 @@ export namespace oces
                     }
                 }
 
-                std::cout << "Have pairs "
-                          << cidx << "-" << nearest_3_cidx[0] << ", "
-                          << cidx << "-" << nearest_3_cidx[1] << ", "
-                          << cidx << "-" << nearest_3_cidx[2] << "\n";
+                //std::cout << "Have pairs "
+                //          << cidx << "-" << nearest_3_cidx[0] << ", "
+                //          << cidx << "-" << nearest_3_cidx[1] << ", "
+                //          << cidx << "-" << nearest_3_cidx[2] << "\n";
+
+                for (std::uint32_t k = 0; k < 3; ++k) {
+                    // pi and nearest_3_cidx[k]
+                    sm::vec<float> c = refeye.eye_plane_coordinates[nearest_3_cidx[k]];
+                    // Find order
+                    sm::vec<float> pi_c = c - pi;
+                    sm::vec<float> c_pi = -pi_c;
+                    sm::vec<float> new_p = {};
+                    sm::vec<float> new_p2 = {};
+                    if (pi_c.dot (pi) > 0.0f) {
+                        // pi_c is outward
+                        new_p = pi + pi_c * 2.0f;
+                        new_p2 = pi + pi_c * 4.0f;
+                    } else {
+                        // c_pi outward
+                        new_p = pi + c_pi * 2.0f;
+                        new_p2 = pi + c_pi * 4.0f;
+                    }
+                    extra_coordinates.push_back (new_p);
+                    extra_coordinates.push_back (new_p2);
+                    // Plus work out dirn, acceptance angle etc
+                }
             }
         }
+
+        // Just find the closest height from eye_z and place that in the hexgrid.
+        sm::vvec<float> use_nearest_z (const sm::vvec<float>& eye_z,
+                                       const sm::vvec<sm::vec<float, 2>>& coords2)
+        {
+            sm::vvec<float> hex_z (this->hg.num(), 0.0f);
+
+            // For each hex, find the closest real datum and copy the z value.
+            for (std::uint32_t xi = 0u; xi < this->hg.num(); ++xi) {
+                const sm::vec<float, 2> hp = { this->hg.d_x[xi], this->hg.d_y[xi] };
+                std::uint32_t closest = 0u;
+                float d_closest = std::numeric_limits<float>::max();
+                for (std::uint32_t i = 0u; i < coords2.size(); ++i) {
+                    float _d = (hp - coords2[i]).length(); // distance between coord and our hex
+                    if (_d < d_closest) {
+                        d_closest = _d;
+                        closest = i;
+                    }
+                }
+                // Found closest, now use it
+                hex_z[xi] = eye_z[closest];
+            }
+            return hex_z;
+        }
+
+        sm::vvec<sm::vec<float>> extra_coordinates;
+
+        sm::bezcurvepath<float> bcp;
 
         // @refeye: the reference OCES eye from which we are created.
         void init (const oces::eye& refeye)
@@ -124,12 +174,11 @@ export namespace oces
             }
             sm::vvec<sm::vec<float, 2>> bnd2 = sm::geometry::graham_scan (coords2);
             // From bnd2 make up a set of bezcoords to form a bezcurvepath
-            sm::bezcurvepath<float> bcp;
             for (std::uint32_t i = 1; i < bnd2.size(); ++i) {
                 sm::vec<float, 2> s = bnd2[i-1];
                 sm::vec<float, 2> e = bnd2[i];
                 sm::bezcurve<float, 3> crv (s, e, e, s); // third order, but make it a straight section from bnd2.
-                bcp.add_curve (crv);
+                this->bcp.add_curve (crv);
             }
             this->hg.set_boundary (bcp);
 
@@ -140,11 +189,17 @@ export namespace oces
             // points around the outside of the eye. For each found point, find a nearby point, and
             // draw a line between the two beyond the boundary.
 
-            sm::vvec<sm::vec<float>> extra_coordinates;
-            this->find_extra_coordinates (refeye, extra_coordinates); // may also pass in dirns, acceptance angles
+            //this->find_extra_coordinates (refeye, this->extra_coordinates); // may also pass in dirns, acceptance angles
 
             sm::vvec<sm::vec<float>> all_coordinates = refeye.eye_plane_coordinates;
-            all_coordinates.append (extra_coordinates);
+            std::cout << "eye_plane_coordinates size " << refeye.eye_plane_coordinates.size() << std::endl;
+            all_coordinates.append (this->extra_coordinates);
+            std::cout << "extra_coordinates size " << this->extra_coordinates.size() << std::endl;
+
+            sm::vvec<float> eye_z0 (refeye.eye_plane_coordinates.size(), 0.0f);
+            for (std::uint32_t i = 0; i < refeye.eye_plane_coordinates.size(); ++i) {
+                eye_z0[i] = refeye.eye_plane_coordinates[i][2];
+            }
 
             // start with the z values
             sm::vvec<float> eye_z (all_coordinates.size(), 0.0f);
@@ -154,8 +209,12 @@ export namespace oces
                 coords2[i][1] = all_coordinates[i][1];
                 eye_z[i]      = all_coordinates[i][2];
             }
-
-            this->hg_z = this->hg.resample_data (eye_z, coords2, refeye.d_mean);
+#if 0
+            sm::interval<float> ez0 = eye_z0.range();
+            this->hg_z = this->hg.resample_data (eye_z, ez0.max, coords2, 2 * refeye.d_mean);
+#else
+            this->hg_z = this->use_nearest_z (eye_z, coords2);
+#endif
             std::cout << "hg_z: " << hg_z << std::endl;
         }
     };
