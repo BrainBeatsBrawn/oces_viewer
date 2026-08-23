@@ -147,6 +147,8 @@ export namespace oces
 
         sm::bezcurvepath<float> bcp;
 
+        sm::interval<float> eye_z_range;
+
         // @refeye: the reference OCES eye from which we are created.
         void init (const oces::eye& refeye)
         {
@@ -170,7 +172,7 @@ export namespace oces
             sm::vvec<sm::vec<float, 2>> coords2 (refeye.get_omm_per_eye());
             for (std::uint32_t i = 0; i < refeye.get_omm_per_eye(); ++i) {
                 coords2[i] = refeye.eye_plane_coordinates[i].less_one_dim();
-                coords2[i][0] *= -1; // Not quite sure why I have to invert x.
+                coords2[i][1] *= -1; // invert y. I also invert y when I plot with BezCurvePathVisual. Figure out why.
             }
             sm::vvec<sm::vec<float, 2>> bnd2 = sm::geometry::graham_scan (coords2);
             // From bnd2 make up a set of bezcoords to form a bezcurvepath
@@ -184,12 +186,11 @@ export namespace oces
 
             // Now resample eye_plane_coordinates[][2], refeye.directions and refeye.acceptance_angles onto hex containers
 
-            // To get a good resampling, it helps to extend the data in eye_plane_coordinates so
+            // To get a good resampling, it may help to extend the data in eye_plane_coordinates so
             // that the data extends beyond the boundary. I'll extend with a linear extension. Find
             // points around the outside of the eye. For each found point, find a nearby point, and
             // draw a line between the two beyond the boundary.
-
-            //this->find_extra_coordinates (refeye, this->extra_coordinates); // may also pass in dirns, acceptance angles
+            // this->find_extra_coordinates (refeye, this->extra_coordinates); // may also pass in dirns, acceptance angles
 
             sm::vvec<sm::vec<float>> all_coordinates = refeye.eye_plane_coordinates;
             std::cout << "eye_plane_coordinates size " << refeye.eye_plane_coordinates.size() << std::endl;
@@ -200,6 +201,7 @@ export namespace oces
             for (std::uint32_t i = 0; i < refeye.eye_plane_coordinates.size(); ++i) {
                 eye_z0[i] = refeye.eye_plane_coordinates[i][2];
             }
+            this->eye_z_range = eye_z0.range();
 
             // start with the z values
             sm::vvec<float> eye_z (all_coordinates.size(), 0.0f);
@@ -209,9 +211,8 @@ export namespace oces
                 coords2[i][1] = all_coordinates[i][1];
                 eye_z[i]      = all_coordinates[i][2];
             }
-#if 0
-            sm::interval<float> ez0 = eye_z0.range();
-            this->hg_z = this->hg.resample_data (eye_z, ez0.max, coords2, 2 * refeye.d_mean);
+#if 1
+            this->hg_z = this->hg.resample_data (eye_z, this->eye_z_range.max, coords2, 2 * refeye.d_mean);
 #else
             this->hg_z = this->use_nearest_z (eye_z, coords2);
 #endif

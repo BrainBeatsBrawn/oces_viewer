@@ -476,6 +476,7 @@ int main (int argc, char** argv)
     bcpv->set_parent (v.get_id());
     bcpv->bcp = &heye.bcp;
     bcpv->invert_y = true;
+    bcpv->z = heye.eye_z_range.min;
     bcpv->step  = 0.00001f;
     bcpv->width = bcpv->step / 5.0f;
     bcpv->finalize();
