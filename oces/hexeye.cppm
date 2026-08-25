@@ -211,12 +211,27 @@ export namespace oces
                 coords2[i][1] = all_coordinates[i][1];
                 eye_z[i]      = all_coordinates[i][2];
             }
+
+            // Now shift the eye_z coordinates to be in range 0->max
+            eye_z -= this->eye_z_range.min; // min should be negative
+            auto shiftedrange = eye_z.range();
+            std::cout << "Shift eye_z range: " << shiftedrange << std::endl;
+            // Renormalize eye_z
+            eye_z /= shiftedrange.max;
+
 #if 1
-            this->hg_z = this->hg.resample_data (eye_z, this->eye_z_range.max, coords2, 2 * refeye.d_mean);
+            this->hg_z = this->hg.resample_data (eye_z, coords2, 2 * refeye.d_mean);
+            auto hgzr = this->hg_z.range();
+            std::cout << "Raw hg_z range: " << hgzr << std::endl;
+            // Renormalize
+            this->hg_z /= hgzr.max;
+            // Multiply by shifted range max
+            this->hg_z *= shiftedrange.max;
+            std::cout << "Raw range 0-max: " << hgzr << std::endl;
 #else
             this->hg_z = this->use_nearest_z (eye_z, coords2);
 #endif
-            std::cout << "hg_z: " << hg_z << std::endl;
+            //std::cout << "hg_z: " << hg_z << std::endl;
         }
     };
 }
