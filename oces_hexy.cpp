@@ -215,7 +215,7 @@ int main (int argc, char** argv)
     if (oces_reader.read_success == false) { return -1; }
 
     // Make a hex eye
-    oces::hexeye heye (oces_reader.eye);
+    oces::hexeye<float> heye (oces_reader.eye);
 
     // Could have:
     // oces_reader.make_hex_equivalent();
@@ -456,6 +456,7 @@ int main (int argc, char** argv)
     hgv->setScalarData (&heye.hg_z);
     //hgv->showcentre = true;
     //hgv->markedHexes.insert (1);
+    hgv->showboundary = true;
     hgv->hexVisMode = mplot::HexVisMode::HexInterp; // Or sm::HexVisMode::Triangles for a smoother surface plot
     hgv->finalize();
     hgv->scaleViewMatrix (1000.0f);
@@ -475,7 +476,7 @@ int main (int argc, char** argv)
     auto bcpv = std::make_unique<mplot::BezCurvePathVisual<float, 3>> (sm::vec<>{});
     bcpv->set_parent (v.get_id());
     bcpv->bcp = &heye.bcp;
-    bcpv->invert_y = true;
+    bcpv->path_is_loop = true;
     bcpv->z = heye.eye_z_range.min;
     bcpv->step  = 0.00001f;
     bcpv->width = bcpv->step / 5.0f;
