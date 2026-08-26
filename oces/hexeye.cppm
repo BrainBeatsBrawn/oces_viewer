@@ -39,11 +39,10 @@ export namespace oces
         hexeye (const oces::eye& refeye) { this->init (refeye); }
 
         // Average height from any point within one or two hexes of the current hex
-        sm::vvec<F> use_average_nearest_z (const sm::vvec<F>& eye_z,
-                                           const sm::vvec<sm::vec<F, 2>>& coords2)
+        void use_average_nearest_z (const sm::vvec<F>& eye_z, sm::vvec<F>& hex_z,
+                                    const sm::vvec<sm::vec<F, 2>>& coords2)
         {
-            sm::vvec<F> hex_z (this->hg.num(), 0.0f);
-
+            hex_z.resize (this->hg.num(), 0.0f);
             const F d_thresh = this->hg.d * F{1};
 
             // For each hex, find all the close real data and copy the z values/average.
@@ -54,17 +53,17 @@ export namespace oces
                 sm::vvec<std::uint32_t> nearby = {};
 
                 for (std::uint32_t i = 0u; i < coords2.size(); ++i) {
-                    F _d = (hp - coords2[i]).length(); // distance between coord and our hex
+                    const F _d = (hp - coords2[i]).length(); // distance between coord and our hex
                     if (_d < d_thresh) { nearby.push_back (i); }
                 }
-                // Found nearby, now use them
+
+                // Found nearby points, now use them
                 F z_sum = F{0};
                 for (std::uint32_t i = 0u; i < nearby.size(); ++i) {
                     z_sum += eye_z[nearby[i]];
                 }
                 hex_z[xi] = z_sum / nearby.size();
             }
-            return hex_z;
         }
 
         // @refeye: the reference OCES eye from which we are created.
@@ -129,7 +128,7 @@ export namespace oces
             }
 
             // this->hg_z = this->hg.resample_data (eye_z, coords2, 2 * refeye.d_mean);
-            this->hg_z = this->use_average_nearest_z (eye_z, coords2);
+            this->use_average_nearest_z (eye_z, this->hg_z, coords2);
         }
     };
 }
