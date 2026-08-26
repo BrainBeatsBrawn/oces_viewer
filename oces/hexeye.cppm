@@ -7,12 +7,13 @@ module;
 #include <iostream>
 #include <cstdint>
 #include <map>
+#include <string>
 
 export module oces.hexeye;
 export import oces.reader;
 
 export import sm.hexgrid;
-//export import sm.hexgrid_hdf; // probably
+import sm.hexgrid.hdf;
 import sm.vvec;
 import sm.mat;
 export import sm.bezcurvepath;
@@ -152,9 +153,7 @@ export namespace oces
             }
 
             // this->hg_z = this->hg.resample_data (eye_z, coords2, 2 * refeye.d_mean);
-            this->use_average_nearest_z (eye_z, this->hg_z,
-                                         refeye, this->eye,
-                                         coords2);
+            this->use_average_nearest_z (eye_z, this->hg_z, refeye, this->eye, coords2);
 
             // Build the oces::eye, which means transforming this->hg_z, etc
             this->eye.position.resize (this->hg.num());
@@ -172,6 +171,17 @@ export namespace oces
             this->eye.construct_mirror_eye();
 
             this->eye.postprocess();
+        }
+
+        // Save the eye and the hexgrid to files.
+        void save (const std::string& filename_base)
+        {
+            std::string fname_csv = filename_base + ".csv";
+            std::string fname_hdf = filename_base + ".h5";
+            this->eye.output_compound_ray_csv (fname_csv);
+            std::cout << "Saved hexeye::eye to " << fname_csv << "\n";
+            sm::hexgrid_save (this->hg, fname_hdf);
+            std::cout << "Saved hexeye::hg to " << fname_hdf << "\n";
         }
     };
 }

@@ -8,6 +8,7 @@ module;
 #include <stdexcept>
 #include <string>
 #include <sstream>
+#include <fstream>
 
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
@@ -138,10 +139,9 @@ export namespace oces
             return omm_per_eye;
         }
 
-        // In eye plane
+        // In eye plane, find the most central OMM
         void compute_central()
         {
-            // find the most central OMM
             const std::uint32_t omm_per_eye = this->get_omm_per_eye();
 
             auto ctrd = sm::algo::centroid (this->eye_plane_coordinates).less_one_dim();
@@ -151,14 +151,13 @@ export namespace oces
                 sm::vec<float, 2> pi = this->eye_plane_coordinates[i].less_one_dim();
                 float d_c = (pi - ctrd).length();
                 if (d_c < min_d_c) {
-                    this->central_omm = i;
+                    this->central_omm = i; // index of central ommatidium
                     min_d_c = d_c;
                 }
             }
-            std::cout << "Central OMM is index " << this->central_omm << std::endl;
 
             if (central_omm > this->eye_plane_coordinates.size()) {
-                std::cout << "Out of range of position?\n";
+                std::cerr << "Out of range of position?\n";
                 return;
             }
 
@@ -180,11 +179,8 @@ export namespace oces
                 }
             }
 
-            std::cout << "Nearest neighbours are at: ";
             for (std::uint32_t k = 0; k < 6; ++k) {
-                std::cout << this->central_neighbours[k] << ", angle ";
                 this->central_neighbour_angles[k] = pi.less_one_dim().angle (this->central_neighbours[k].less_one_dim());
-                std::cout << this->central_neighbour_angles[k] << std::endl;
             }
         }
 
@@ -197,7 +193,7 @@ export namespace oces
 
             if (omm_per_eye < 7) {
                 // we'd not fill nearest_6 with valid distances
-                std::cout << "compute_neighbour_distance(): Too few ommatidia for this function; returning\n";
+                std::cerr << "compute_neighbour_distance(): Too few ommatidia for this function; returning\n";
                 return;
             }
 
@@ -224,8 +220,6 @@ export namespace oces
                 this->d_mean += nearest_6.mean();
             }
             this->d_mean /= omm_per_eye;
-
-            std::cout << "Mean neighbour distance = " << this->d_mean << std::endl;
         }
 
         // Project each ommatidium position onto the eye plane. This becomes a vector of 3D values
@@ -261,11 +255,6 @@ export namespace oces
             this->eye_plane.ey = this->eye_plane.p.normal.cross (sm::vec<float>::uz());
             this->eye_plane.ey.renormalize();
             this->eye_plane.ex = this->eye_plane.ey.cross (this->eye_plane.p.normal); // guaranteed unit vector
-
-            std::cout << "Length checks: ["
-                      << this->eye_plane.ex.length() << ", "
-                      << this->eye_plane.ey.length() << ", "
-                      << this->eye_plane.p.normal.length() << "]\n";
 
             this->eye_plane.eye_to_oces.frombasis_inplace (this->eye_plane.ex, this->eye_plane.ey, this->eye_plane.p.normal);
             // That covers the rotation between the bases, but we also need a translation:
@@ -357,6 +346,29 @@ export namespace oces
             }
         }
 
+        void output_compound_ray_csv (const std::string& filename)
+        {
+            if (this->position.size() == this->orientation.size()
+                && this->position.size() == this->focal_offset.size()
+                && this->position.size() == this->acceptance_angle.size()) {
+
+                std::ofstream fout (filename.c_str(), std::ios::out | std::ios::trunc);
+                if (fout.is_open()) {
+                    for (size_t i = 0; i < this->position.size(); ++i) {
+                        fout << this->position[i].str_comma_separated (' ') << " "
+                             << this->orientation[i].str_comma_separated (' ')
+                             << " " << this->acceptance_angle[i]
+                             << " " << std::abs(this->focal_offset[i])
+                             << std::endl;
+                    }
+                    fout.close();
+                }
+            } else {
+                std::cerr << "position, orientation, focal_offset and "
+                          << "diameter/acceptance_angle should all have the same number of elements.\n";
+            }
+        }
+
         void output_compound_ray_csv()
         {
             if (this->position.size() == this->orientation.size()
@@ -434,7 +446,7 @@ export namespace oces
                 if (eu == "OCES_eyes") { oces_eyes_used = true; }
             }
             if (!oces_eyes_used) {
-                std::cout << "Warning: Did not find \"OCES_eyes\" in \"extensions\" section of glTF. Carrying on anyway...\n";
+                std::cerr << "Warning: Did not find \"OCES_eyes\" in \"extensions\" section of glTF. Carrying on anyway...\n";
             }
 
             std::vector<std::unordered_map<std::string, int>> eyes_OmmatidialProperties;
@@ -453,7 +465,7 @@ export namespace oces
 
                 auto ommatidialProperties = ev.Get ("ommatidialProperties");
                 if (!ommatidialProperties.IsArray()) {
-                    std::cout << "This ommatidialProperties is not an array; try next extension\n";
+                    std::cerr << "This ommatidialProperties is not an array; try next extension\n";
                     continue;
                 }
 
@@ -487,7 +499,7 @@ export namespace oces
                     for (size_t i = 0; i < eyes.Size(); ++i) {
                         // Process eye
                         if (eyes.Get(i).Get("type").Get<std::string>() != "POINT_OMMATIDIAL") {
-                            std::cout << "Don't know how to process an OCES eye of type '"
+                            std::cerr << "Don't know how to process an OCES eye of type '"
                                       << eyes.Get(i).Get("type").Get<std::string>() << "'\n";
                             continue;
                         }
@@ -495,11 +507,11 @@ export namespace oces
                         auto op = eyes.Get(i).Get("ommatidialProperties");
 
                         if (!op.IsObject()) {
-                            std::cout << "Badly formed OCES glTF (OCES_eyes.ommatidialProperties is not a JSON object)\n";
+                            std::cerr << "Badly formed OCES glTF (OCES_eyes.ommatidialProperties is not a JSON object)\n";
                             continue;
                         }
                         if (!(op.Has("POSITION") && op.Has("ORIENTATION") && op.Has("FOCAL_OFFSET") && op.Has("DIAMETER"))) {
-                            std::cout << "Badly formed OCES glTF (OCES_eyes.ommatidialProperties is not a JSON object)\n";
+                            std::cerr << "Badly formed OCES glTF (OCES_eyes.ommatidialProperties is not a JSON object)\n";
                             continue;
                         }
 
@@ -775,8 +787,6 @@ export namespace oces
                 }
             }
         }
-
-        void output_compound_ray_csv() { this->eye.output_compound_ray_csv(); }
     };
 
 } // namespace oces

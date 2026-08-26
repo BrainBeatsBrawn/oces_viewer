@@ -18,6 +18,10 @@ find_package(OpenGL REQUIRED)
 find_package(glfw3 3.3 REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(HDF5)
+if(HDF5_FOUND)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${HDF5_DEFINITIONS}")
+endif()
 # include files for graphics
 set(MPLOT_INC_EXTRA ${HDF5_INCLUDE_DIR})
 include_directories(${MPLOT_INC_EXTRA} ${OPENGL_INCLUDE_DIR} ${GLFW3_INCLUDE_DIR} ${FREETYPE_INCLUDE_DIRS})
@@ -79,16 +83,27 @@ set(OCES_HEXY_MODULES
 )
 list(REMOVE_DUPLICATES OCES_HEXY_MODULES)
 
-add_executable(oces_hexy oces_hexy.cpp)
-target_sources(oces_hexy
-  PUBLIC FILE_SET CXX_MODULES BASE_DIRS ${PROJECT_SOURCE_DIR}
-  FILES ${OCES_HEXY_MODULES}
-)
-target_link_libraries(oces_hexy OpenGL::GL Freetype::Freetype glfw glad mplot_fontdata)
-
 # OCES format to compound-ray format (text output)
 add_executable(oces2cray oces2cray.cpp)
 target_sources(oces2cray
   PUBLIC FILE_SET CXX_MODULES BASE_DIRS ${PROJECT_SOURCE_DIR}
   FILES ${OCES_READER_MODULES}
 )
+
+# Programs that use oces::hexeye need libhdf5
+if(HDF5_FOUND)
+  add_executable(oces_hexy oces_hexy.cpp)
+  target_sources(oces_hexy
+    PUBLIC FILE_SET CXX_MODULES BASE_DIRS ${PROJECT_SOURCE_DIR}
+    FILES ${OCES_HEXY_MODULES}
+  )
+  target_link_libraries(oces_hexy OpenGL::GL Freetype::Freetype glfw glad ${HDF5_LIBRARIES} mplot_fontdata)
+
+  # Read OCES format, create a hex equivalent eye and output in compound-ray format (to file)
+  add_executable(oceshex2cray oceshex2cray.cpp)
+  target_sources(oceshex2cray
+    PUBLIC FILE_SET CXX_MODULES BASE_DIRS ${PROJECT_SOURCE_DIR}
+    FILES ${OCES_HEXEYE_MODULES}
+  )
+  target_link_libraries(oceshex2cray ${HDF5_LIBRARIES})
+endif()

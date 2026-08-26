@@ -16,7 +16,7 @@ int main (int argc, char** argv)
     std::string filename (argv[1]);
 
     oces::reader oces_reader (filename);
-    oces_reader.output_compound_ray_csv();
+    oces_reader.eye.output_compound_ray_csv();
 
     return 0;
 }

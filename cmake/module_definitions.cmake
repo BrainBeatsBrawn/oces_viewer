@@ -29,7 +29,7 @@ macro(setup_module_variables_for_oces_reader oces_directory maths_directory)
     ${OCES_READER_MODULES}
     ${oces_directory}/oces/hexeye.cppm
     ${SM_VVEC_MODULES}
-    ${SM_HEXGRID_MODULES}
+    ${SM_HEXGRID_HDF_MODULES}
   )
   list(REMOVE_DUPLICATES OCES_HEXEYE_MODULES)
 
