@@ -157,6 +157,7 @@ mplot::compoundray::EyeVisual<>* make_eye_model (OcesVisual& v, oces::eye& oces_
         sm::quaternion<float> psrotn (v.psrax, v.psr);
         eyevm->add_spherical_projection (ptype, twod_tr, v.pscentre, v.psrad, psrotn, 0, oces_eye.position.size() / 2);
         if (oces_eye.mirrors.empty() == false) {
+            std::cout << "oces_eye.mirrors is not empty!\n";
             sm::vec<> _pscentre = (oces_eye.mirrors[0] * v.pscentre).less_one_dim();
 
             sm::vec<> twod_shift_left = v.twod_shift;
@@ -215,14 +216,10 @@ int main (int argc, char** argv)
     if (oces_reader.read_success == false) { return -1; }
 
     // Make a hex eye from the eye we read from file. This creates heye.eye, the equivalent hexy eye.
-    oces::hexeye<float> heye (oces_reader.eye);
+    oces::hexeye<float> heye (oces_reader.eye, 1.0f); // <1 currently crashes
+    std::cout << "Hex eye has " << heye.eye.position.size() << " ommatidia = " << heye.hg.num() << std::endl;
 
-    // Could have:
-    // oces_reader.make_hex_equivalent();
-    // or
-    // oces::hexeye equiv (oces_reader); // Builds an equivalent hex arrangement
-
-    // Now view
+    // Now view the hexy eye
     auto v = OcesVisual(1024, 768, "mplot::compoundray::EyeVisual");
     v.lightingEffects (true);
 

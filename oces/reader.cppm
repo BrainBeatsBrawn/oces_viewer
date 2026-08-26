@@ -324,6 +324,39 @@ export namespace oces
             this->ready = true;
         }
 
+        // Make the mirror eye
+        void construct_mirror_eye()
+        {
+            if (!this->mirrorplanes.empty()) {
+
+                this->mirrors.clear();
+
+                // Get size for one eye
+                size_t sz = this->position.size();
+
+                // Make space
+                this->position.resize (2 * sz);
+                this->orientation.resize (2 * sz);
+                this->focal_offset.resize (2 * sz);
+                this->diameter.resize (2 * sz);
+                this->acceptance_angle.resize (2 * sz);
+
+                sm::mat<float, 4> mirror = sm::mat<float, 4>::reflection (this->mirrorplanes[0].origin, this->mirrorplanes[0].normal);
+                this->mirrors.push_back (mirror); // Saved for client code to use
+                for (size_t i = 0; i < sz; ++i) {
+                    // Mirror position and direction
+                    sm::vec<float> mpos = (mirror * this->position[i]).less_one_dim();
+                    sm::vec<float> mdir = (mirror * this->orientation[i]).less_one_dim();
+                    this->position[sz + i] = mpos;
+                    this->orientation[sz + i] = mdir;
+                    // Focal offset, diameter and acceptance angle are simply copied
+                    this->focal_offset[sz + i] = this->focal_offset[i];
+                    this->diameter[sz + i] = this->diameter[i];
+                    this->acceptance_angle[sz + i] = this->acceptance_angle[i];
+                }
+            }
+        }
+
         void output_compound_ray_csv()
         {
             if (this->position.size() == this->orientation.size()
@@ -581,30 +614,7 @@ export namespace oces
 
                 // Act on mirror planes and add to position arrays
                 if (!this->eye.mirrorplanes.empty() && !this->ignore_mirrors) {
-
-                    // Get size for one eye
-                    size_t sz = this->eye.position.size();
-
-                    // Make space
-                    this->eye.position.resize (2 * sz);
-                    this->eye.orientation.resize (2 * sz);
-                    this->eye.focal_offset.resize (2 * sz);
-                    this->eye.diameter.resize (2 * sz);
-                    this->eye.acceptance_angle.resize (2 * sz);
-
-                    sm::mat<float, 4> mirror = sm::mat<float, 4>::reflection (this->eye.mirrorplanes[0].origin, this->eye.mirrorplanes[0].normal);
-                    this->eye.mirrors.push_back (mirror); // Saved for client code to use
-                    for (size_t i = 0; i < sz; ++i) {
-                        // Mirror position and direction
-                        sm::vec<float> mpos = (mirror * this->eye.position[i]).less_one_dim();
-                        sm::vec<float> mdir = (mirror * this->eye.orientation[i]).less_one_dim();
-                        this->eye.position[sz + i] = mpos;
-                        this->eye.orientation[sz + i] = mdir;
-                        // Focal offset, diameter and acceptance angle are simply copied
-                        this->eye.focal_offset[sz + i] = this->eye.focal_offset[i];
-                        this->eye.diameter[sz + i] = this->eye.diameter[i];
-                        this->eye.acceptance_angle[sz + i] = this->eye.acceptance_angle[i];
-                    }
+                    this->eye.construct_mirror_eye();
                 }
             }
 

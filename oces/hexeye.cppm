@@ -31,26 +31,15 @@ export namespace oces
         sm::hexgrid<F> hg;
         // The 'z' positions of the hexgrid eye
         sm::vvec<F> hg_z;
-        // The orientations on the hexgrid eye
-        sm::vvec<sm::vec<float>> hg_orientation;      // along with positions; needs transform
-
-        // Where no transform is needed we can use eye.focal_offset, eye.diameter,
-        // eye.acceptance_angle directly.
-#if 0
-        sm::vvec<float> hg_focal_offset;              // no transform needed
-        sm::vvec<float> hg_diameter;                  // no transform needed
-        sm::vvec<float> hg_acceptance_angle;          // no transform needed
-#endif
         // The boundary around the outer-most ommatidia. The eye outline.
         sm::bezcurvepath<F> eye_outline;
 
         hexeye(){}
         // @refeye: the reference OCES eye from which we are created.
-        hexeye (const oces::eye& refeye) { this->init (refeye); }
+        hexeye (const oces::eye& refeye, const float iod_mult = 1.0f) { this->init (refeye, iod_mult); }
 
         // Average height, orientation, and other parameters from any point within one or two hexes of the current hex
         void use_average_nearest_z (const sm::vvec<F>& eye_z, sm::vvec<F>& hex_z,
-                                    //const sm::vvec<sm::vec<float>>& eye_orientation, sm::vvec<sm::vec<float>>& hex_orientation,
                                     const oces::eye& ref_eye, oces::eye& hex_eye,
                                     const sm::vvec<sm::vec<F, 2>>& coords2)
         {
@@ -96,8 +85,10 @@ export namespace oces
             }
         }
 
-        // @refeye: the reference OCES eye from which we are created.
-        void init (const oces::eye& refeye)
+        // @refeye: the reference OCES eye from which we are created.  @iod_mult: How many multiples
+        // of interommatidial distance should we use to make the hex grid? 1 gives right
+        // interommatidial spacing, but usually results in fewer ommatidia than the real eye
+        void init (const oces::eye& refeye, const float iod_mult = 1.0f)
         {
             if (refeye.ready == false) {
                 std::cerr << "Can't use that reference eye as it is not ready. Returning.\n";
@@ -109,7 +100,7 @@ export namespace oces
             this->eye.ready = false;
 
             // Set up hex grid. Need mean ommatidial neighbour distance to create the hexgrid, along with the approximate span.
-            this->hg.init (refeye.d_mean, refeye.d_max * 2.0f);
+            this->hg.init (refeye.d_mean * iod_mult, refeye.d_max * 2.0f);
 
             // Now use offset and angle to make a transform for the hexgrid
             F ang = refeye.central_neighbour_angles.min();
@@ -176,6 +167,9 @@ export namespace oces
                 };
                 this->eye.position[i] = (tfm_position * p).less_one_dim();
             }
+
+            // Having built one eye, need to generate the mirror.
+            this->eye.construct_mirror_eye();
 
             this->eye.postprocess();
         }
