@@ -81,6 +81,9 @@ export namespace oces
         // the world.). Maybe just need transform * position.
         sm::vvec<sm::vec<float, 3>> eye_plane_coordinates = {};
 
+        // The orientations, rotated into the eye plane
+        sm::vvec<sm::vec<float, 3>> eye_plane_orientation = {}; // transform with this->eye_plane.eye_to_oces
+
         // Horizontal field of view (about the up axis, which is y in OCES)
         float horz_fov = 0.0f;
         // Vertical field of view (about the fwds axis, which is z in OCES)
@@ -233,10 +236,13 @@ export namespace oces
             const std::uint32_t omm_per_eye = this->get_omm_per_eye();
 
             this->eye_plane_coordinates.resize (omm_per_eye, {});
+            this->eye_plane_orientation.resize (omm_per_eye, {});
 
+            auto tfm_position = this->eye_plane.eye_to_oces.inverse();
+            auto tfm_orientation = tfm_position.linear();
             for (std::uint32_t i = 0; i < omm_per_eye; ++i) {
-                this->eye_plane_coordinates[i] = (this->eye_plane.eye_to_oces.inverse() * this->position[i]).less_one_dim();
-                //std::cout << "eye plane coord " << i << ": " << this->eye_plane_coordinates[i] << std::endl;
+                this->eye_plane_coordinates[i] = (tfm_position * this->position[i]).less_one_dim();
+                this->eye_plane_orientation[i] = tfm_orientation * this->orientation[i];
             }
         }
 
@@ -308,6 +314,16 @@ export namespace oces
             this->vert_fov = vert_fov_r.max;
         }
 
+        void postprocess()
+        {
+            this->compute_fov_max();
+            this->compute_neighbour_distance();
+            this->compute_eye_plane();
+            this->compute_projections_on_eye_plane();
+            this->compute_central();
+            this->ready = true;
+        }
+
         void output_compound_ray_csv()
         {
             if (this->position.size() == this->orientation.size()
@@ -356,15 +372,7 @@ export namespace oces
         }
 
         // Stats etc to be computed after reading
-        void postprocess()
-        {
-            this->eye.compute_fov_max();
-            this->eye.compute_neighbour_distance();
-            this->eye.compute_eye_plane();
-            this->eye.compute_projections_on_eye_plane();
-            this->eye.compute_central();
-            this->eye.ready = true;
-        }
+        void postprocess() { this->eye.postprocess(); }
 
         void read()
         {

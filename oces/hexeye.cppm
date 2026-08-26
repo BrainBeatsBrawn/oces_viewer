@@ -31,6 +31,16 @@ export namespace oces
         sm::hexgrid<F> hg;
         // The 'z' positions of the hexgrid eye
         sm::vvec<F> hg_z;
+        // The orientations on the hexgrid eye
+        sm::vvec<sm::vec<float>> hg_orientation;      // along with positions; needs transform
+
+        // Where no transform is needed we can use eye.focal_offset, eye.diameter,
+        // eye.acceptance_angle directly.
+#if 0
+        sm::vvec<float> hg_focal_offset;              // no transform needed
+        sm::vvec<float> hg_diameter;                  // no transform needed
+        sm::vvec<float> hg_acceptance_angle;          // no transform needed
+#endif
         // The boundary around the outer-most ommatidia. The eye outline.
         sm::bezcurvepath<F> eye_outline;
 
@@ -38,11 +48,19 @@ export namespace oces
         // @refeye: the reference OCES eye from which we are created.
         hexeye (const oces::eye& refeye) { this->init (refeye); }
 
-        // Average height from any point within one or two hexes of the current hex
+        // Average height, orientation, and other parameters from any point within one or two hexes of the current hex
         void use_average_nearest_z (const sm::vvec<F>& eye_z, sm::vvec<F>& hex_z,
+                                    //const sm::vvec<sm::vec<float>>& eye_orientation, sm::vvec<sm::vec<float>>& hex_orientation,
+                                    const oces::eye& ref_eye, oces::eye& hex_eye,
                                     const sm::vvec<sm::vec<F, 2>>& coords2)
         {
-            hex_z.resize (this->hg.num(), 0.0f);
+            // Resize output containers
+            hex_z.resize (this->hg.num(), F{0});
+            hex_eye.orientation.resize (this->hg.num(), sm::vec<float>{});
+            hex_eye.focal_offset.resize (this->hg.num(), 0.0f);
+            hex_eye.diameter.resize (this->hg.num(), 0.0f);
+            hex_eye.acceptance_angle.resize (this->hg.num(), 0.0f);
+
             const F d_thresh = this->hg.d * F{1};
 
             // For each hex, find all the close real data and copy the z values/average.
@@ -59,10 +77,22 @@ export namespace oces
 
                 // Found nearby points, now use them
                 F z_sum = F{0};
+                sm::vec<float> o_sum = {};
+                float f_sum = 0.0f;
+                float d_sum = 0.0f;
+                float a_sum = 0.0f;
                 for (std::uint32_t i = 0u; i < nearby.size(); ++i) {
                     z_sum += eye_z[nearby[i]];
+                    o_sum += ref_eye.orientation[nearby[i]];
+                    f_sum += ref_eye.focal_offset[nearby[i]];
+                    d_sum += ref_eye.diameter[nearby[i]];
+                    a_sum += ref_eye.acceptance_angle[nearby[i]];
                 }
                 hex_z[xi] = z_sum / nearby.size();
+                hex_eye.orientation[xi] = o_sum / nearby.size();
+                hex_eye.focal_offset[xi] = f_sum / nearby.size();
+                hex_eye.diameter[xi] = d_sum / nearby.size();
+                hex_eye.acceptance_angle[xi] = a_sum / nearby.size();
             }
         }
 
@@ -74,13 +104,17 @@ export namespace oces
                 return;
             }
 
+            // Copy to this eye first
+            this->eye = refeye;
+            this->eye.ready = false;
+
             // Set up hex grid. Need mean ommatidial neighbour distance to create the hexgrid, along with the approximate span.
             this->hg.init (refeye.d_mean, refeye.d_max * 2.0f);
 
             // Now use offset and angle to make a transform for the hexgrid
             F ang = refeye.central_neighbour_angles.min();
             sm::mat<F, 4> tfm (sm::quaternion<F>(sm::vec<F>::uz(), ang));
-            sm::vec<F> c = refeye.eye_plane_coordinates[refeye.central_omm];
+            sm::vec<F> c = refeye.eye_plane_coordinates[refeye.central_omm]; // need eye_plane_orientations
             c[2] = 0;
             tfm.pretranslate (c);
             this->hg.transform (tfm);
@@ -89,7 +123,6 @@ export namespace oces
             sm::vvec<sm::vec<F, 2>> coords2 (refeye.get_omm_per_eye());
             for (std::uint32_t i = 0; i < refeye.get_omm_per_eye(); ++i) {
                 coords2[i] = refeye.eye_plane_coordinates[i].less_one_dim().template as<F>();
-                //coords2[i][1] *= -1; // invert y. I also invert y when I plot with BezCurvePathVisual. Figure out why.
             }
             sm::vvec<sm::vec<F, 2>> bnd2 = sm::geometry::graham_scan (coords2);
             sm::vec<F, 2> s = {};
@@ -128,7 +161,23 @@ export namespace oces
             }
 
             // this->hg_z = this->hg.resample_data (eye_z, coords2, 2 * refeye.d_mean);
-            this->use_average_nearest_z (eye_z, this->hg_z, coords2);
+            this->use_average_nearest_z (eye_z, this->hg_z,
+                                         refeye, this->eye,
+                                         coords2);
+
+            // Build the oces::eye, which means transforming this->hg_z, etc
+            this->eye.position.resize (this->hg.num());
+            auto tfm_position = refeye.eye_plane.eye_to_oces;
+            for (std::uint32_t i = 0; i < this->hg.num(); ++i) {
+                const sm::vec<float> p = {
+                    static_cast<float>(this->hg.d_x[i]),
+                    static_cast<float>(this->hg.d_y[i]),
+                    static_cast<float>(this->hg_z[i])
+                };
+                this->eye.position[i] = (tfm_position * p).less_one_dim();
+            }
+
+            this->eye.postprocess();
         }
     };
 }

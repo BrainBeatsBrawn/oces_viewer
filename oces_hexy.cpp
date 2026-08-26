@@ -214,7 +214,7 @@ int main (int argc, char** argv)
     oces::reader oces_reader (filename, (a_hidemirror ? true : false));
     if (oces_reader.read_success == false) { return -1; }
 
-    // Make a hex eye
+    // Make a hex eye from the eye we read from file. This creates heye.eye, the equivalent hexy eye.
     oces::hexeye<float> heye (oces_reader.eye);
 
     // Could have:
@@ -274,20 +274,20 @@ int main (int argc, char** argv)
     std::vector<std::array<float, 3>> ommatidiaColours;
 
     // Copy data into the ommatidia data structure
-    ommatidia->resize (oces_reader.eye.position.size());
-    std::cerr << "Copying " << oces_reader.eye.position.size() << " ommatidia\n";
-    for (size_t i = 0; i < oces_reader.eye.position.size(); ++i) {
-        (*ommatidia)[i].relativePosition = oces_reader.eye.position[i];
-        (*ommatidia)[i].relativeDirection = oces_reader.eye.orientation[i];
-        (*ommatidia)[i].focalPointOffset = oces_reader.eye.focal_offset[i];
-        (*ommatidia)[i].acceptanceAngleRadians = oces_reader.eye.acceptance_angle[i];
+    ommatidia->resize (heye.eye.position.size());
+    std::cerr << "Copying " << heye.eye.position.size() << " ommatidia\n";
+    for (size_t i = 0; i < heye.eye.position.size(); ++i) {
+        (*ommatidia)[i].relativePosition = heye.eye.position[i];
+        (*ommatidia)[i].relativeDirection = heye.eye.orientation[i];
+        (*ommatidia)[i].focalPointOffset = heye.eye.focal_offset[i];
+        (*ommatidia)[i].acceptanceAngleRadians = heye.eye.acceptance_angle[i];
     }
     if (a_verbose) {
-        for (size_t i = 0; i < oces_reader.eye.position.size(); ++i) {
-            std::cout << "ommatidium[" << i << "]: posn = " <<  oces_reader.eye.position[i]
-                      << ",  orientn = " << oces_reader.eye.orientation[i]
-                      << ",  fo = " << oces_reader.eye.focal_offset[i]
-                      << ",  aa = " << oces_reader.eye.acceptance_angle[i]
+        for (size_t i = 0; i < heye.eye.position.size(); ++i) {
+            std::cout << "ommatidium[" << i << "]: posn = " <<  heye.eye.position[i]
+                      << ",  orientn = " << heye.eye.orientation[i]
+                      << ",  fo = " << heye.eye.focal_offset[i]
+                      << ",  aa = " << heye.eye.acceptance_angle[i]
                       << std::endl;
         }
     }
@@ -322,28 +322,28 @@ int main (int argc, char** argv)
     qvh->quiver_length_gain = 4.0f;
     qvh->quiver_thickness_gain = 0.005f;
     qvh->addLabel (std::format ("Horz FOV: {:.2f}{}",
-                                (oces_reader.eye.horz_fov * sm::mathconst<float>::rad2deg),
+                                (heye.eye.horz_fov * sm::mathconst<float>::rad2deg),
                                 mplot::unicode::toUtf8(mplot::unicode::degreesign)),
                    sm::vec<float>{-4,0,4}, mplot::TextFeatures(0.12f));
     qvh->finalize();
     auto qvhp_h = v.addVisualModel (qvh);
     qvhp_h->setHide (v.view_options.test (viewopts::show_proj_fov) == false);
 
-    qvh = std::make_unique<mplot::QuiverVisual<float>>(&oces_reader.eye.v_plane_position, sm::vec<>{-7, 0, 0},
-                                                       &oces_reader.eye.v_plane_orientation,
+    qvh = std::make_unique<mplot::QuiverVisual<float>>(&heye.eye.v_plane_position, sm::vec<>{-7, 0, 0},
+                                                       &heye.eye.v_plane_orientation,
                                                        mplot::ColourMapType::MonochromeRed);
     qvh->set_parent (v.get_id());
     qvh->quiver_length_gain = 4.0f;
     qvh->quiver_thickness_gain = 0.005f;
     qvh->addLabel (std::format ("Vert FOV: {:.2f}{}",
-                                (oces_reader.eye.vert_fov * sm::mathconst<float>::rad2deg),
+                                (heye.eye.vert_fov * sm::mathconst<float>::rad2deg),
                                 mplot::unicode::toUtf8(mplot::unicode::degreesign)),
                    sm::vec<float>{-4,3,0}, mplot::TextFeatures(0.12f));
     qvh->finalize();
     auto qvhp_v = v.addVisualModel (qvh);
     qvhp_v->setHide (v.view_options.test (viewopts::show_proj_fov) == false);
 
-    auto ep = make_eye_model (v, oces_reader.eye, ommatidia.get(), &ommatidiaColours, nullptr);
+    auto ep = make_eye_model (v, heye.eye, ommatidia.get(), &ommatidiaColours, nullptr);
 
     sm::vec<sm::interval<float>, 3> extn = ep->extents();
     std::cout << "Eyemodel extents: " << extn << std::endl; // 1000 times less than they really appear
@@ -364,46 +364,24 @@ int main (int argc, char** argv)
     auto cbvp = v.addVisualModel (cbv);
     cbvp->setHide (v.view_options.test (viewopts::show_fov) == true);
 
-    std::cout << "Eye plane at origin " << oces_reader.eye.eye_plane.p.origin << " with normal " << oces_reader.eye.eye_plane.p.normal << std::endl;
+#if 0
+    std::cout << "Eye plane at origin " << heye.eye.eye_plane.p.origin << " with normal " << heye.eye.eye_plane.p.normal << std::endl;
     // The scaling factor is that used to scale the ant eye
-    auto pvm = std::make_unique<mplot::PlaneVisual<>>(1000.0f * oces_reader.eye.eye_plane.p.origin);
+    auto pvm = std::make_unique<mplot::PlaneVisual<>>(1000.0f * heye.eye.eye_plane.p.origin);
     pvm->set_parent (v.get_id());
-    pvm->normal = oces_reader.eye.eye_plane.p.normal;
+    pvm->normal = heye.eye.eye_plane.p.normal;
     pvm->show_normal = false;
     pvm->colour = mplot::colour::grey70;
     pvm->dim1 = 1.0;
     pvm->setAlpha (0.5f);
     pvm->finalize();
     v.addVisualModel (pvm);
-
-#if 0
-    // Show forwards, z, projected into plane
-    auto vvm = std::make_unique<mplot::VectorVisual<float, 3>>(1000.0f * oces_reader.eye.eye_plane.p.origin);
-    vvm->set_parent (v.get_id());
-    //sm::vec<float> epy = sm::vec<float>::uz().cross (oces_reader.eye.eye_plane.normal);
-    vvm->thevec = oces_reader.eye.eye_plane.ex;
-    vvm->fixed_colour = true;
-    vvm->vgoes = mplot::VectorGoes::FromOrigin;
-    vvm->thickness *= 0.1f;
-    vvm->single_colour = mplot::colour::crimson;
-    vvm->finalize();
-    v.addVisualModel (vvm);
-
-    vvm = std::make_unique<mplot::VectorVisual<float, 3>>(1000.0f * oces_reader.eye.eye_plane.p.origin);
-    vvm->set_parent (v.get_id());
-    vvm->thevec = oces_reader.eye.eye_plane.ey;
-    vvm->fixed_colour = true;
-    vvm->vgoes = mplot::VectorGoes::FromOrigin;
-    vvm->thickness *= 0.1f;
-    vvm->single_colour = mplot::colour::springgreen2;
-    vvm->finalize();
-    v.addVisualModel (vvm);
 #endif
+
     sm::vvec<float> zdata (oces_reader.eye.eye_plane_coordinates.size());
     for (std::uint32_t i = 0; i < zdata.size(); ++i) {
         zdata[i] = oces_reader.eye.eye_plane_coordinates[i][2];
     }
-
     auto sv = std::make_unique<mplot::ScatterVisual<float>> (sm::vec<>{});
     sv->set_parent (v.get_id());
     sv->setDataCoords (&oces_reader.eye.eye_plane_coordinates);
@@ -472,12 +450,12 @@ int main (int argc, char** argv)
     bcpv->scaleViewMatrix (1000.0f);
     v.addVisualModel (bcpv);
 
-    auto aar = oces_reader.eye.acceptance_angle.range();
+    auto aar = heye.eye.acceptance_angle.range();
     std::cout << "Acceptance angle range: "
               << (aar.min * sm::mathconst<float>::rad2deg) << " - " << (aar.max * sm::mathconst<float>::rad2deg)
-              << ", mean: " << (oces_reader.eye.acceptance_angle.mean() * sm::mathconst<float>::rad2deg) << std::endl;
-    std::cout << "Lens diameter range: " << oces_reader.eye.diameter.range()
-              << ", mean: " << oces_reader.eye.diameter.mean() << std::endl;
+              << ", mean: " << (heye.eye.acceptance_angle.mean() * sm::mathconst<float>::rad2deg) << std::endl;
+    std::cout << "Lens diameter range: " << heye.eye.diameter.range()
+              << ", mean: " << heye.eye.diameter.mean() << std::endl;
 
     sm::flags<viewopts> last_view_options = v.view_options;
     while (!v.readyToFinish()) {
@@ -489,7 +467,7 @@ int main (int argc, char** argv)
             cbvp->setHide (v.view_options.test (viewopts::show_fov) == true);
             oces_origin->setHide (v.view_options.test (viewopts::show_origin) == false);
             // Everything else is part of eyevm.
-            ep = make_eye_model (v, oces_reader.eye, ommatidia.get(), &ommatidiaColours, ep);
+            ep = make_eye_model (v, heye.eye, ommatidia.get(), &ommatidiaColours, ep);
             last_view_options = v.view_options;
         }
         v.render();
