@@ -28,6 +28,13 @@ export namespace oces
         oces::eye eye;    // The hexy eye we create
         sm::hexgrid<F> hg;   // The flat hexgrid
         sm::vvec<F> hg_z; // The 'z' positions of the hexgrid eye
+        // The boundary around the outer-most ommatidia. The eye outline.
+        sm::bezcurvepath<F> eye_outline;
+
+        // Maybe unnecessary:
+        //sm::vvec<sm::vec<F>> extra_coordinates;
+        //sm::interval<F> eye_z_range;
+
 
         hexeye(){}
 
@@ -36,7 +43,7 @@ export namespace oces
         {
             this->init (refeye);
         }
-
+#if 0
         void find_extra_coordinates (const oces::eye& refeye, [[maybe_unused]] sm::vvec<sm::vec<F>>& extra_coordinates)
         {
             const std::uint32_t omm_per_eye = refeye.eye_plane_coordinates.size();
@@ -119,7 +126,7 @@ export namespace oces
                 }
             }
         }
-
+#endif
         // Just find the closest height from eye_z and place that in the hexgrid.
         sm::vvec<F> use_nearest_z (const sm::vvec<F>& eye_z,
                                    const sm::vvec<sm::vec<F, 2>>& coords2)
@@ -144,11 +151,34 @@ export namespace oces
             return hex_z;
         }
 
-        sm::vvec<sm::vec<F>> extra_coordinates;
+        // Average height from any point within one or two hexes of the current hex
+        sm::vvec<F> use_average_nearest_z (const sm::vvec<F>& eye_z,
+                                           const sm::vvec<sm::vec<F, 2>>& coords2)
+        {
+            sm::vvec<F> hex_z (this->hg.num(), 0.0f);
 
-        sm::bezcurvepath<F> bcp;
+            const F d_thresh = this->hg.d * F{1};
 
-        sm::interval<F> eye_z_range;
+            // For each hex, find all the close real data and copy the z values/average.
+            for (std::uint32_t xi = 0u; xi < this->hg.num(); ++xi) {
+
+                const sm::vec<F, 2> hp = { this->hg.d_x[xi], this->hg.d_y[xi] };
+
+                sm::vvec<std::uint32_t> nearby = {};
+
+                for (std::uint32_t i = 0u; i < coords2.size(); ++i) {
+                    F _d = (hp - coords2[i]).length(); // distance between coord and our hex
+                    if (_d < d_thresh) { nearby.push_back (i); }
+                }
+                // Found nearby, now use them
+                F z_sum = F{0};
+                for (std::uint32_t i = 0u; i < nearby.size(); ++i) {
+                    z_sum += eye_z[nearby[i]];
+                }
+                hex_z[xi] = z_sum / nearby.size();
+            }
+            return hex_z;
+        }
 
         // @refeye: the reference OCES eye from which we are created.
         void init (const oces::eye& refeye)
@@ -162,14 +192,17 @@ export namespace oces
             this->hg.init (refeye.d_mean, refeye.d_max * 2.0f);
 
             // Now use offset and angle to make a transform for the hexgrid
-#if 0
+#if 1
             F ang = refeye.central_neighbour_angles.min();
-            sm::mat<F, 4> tfm (sm::quaternion<F>(sm::vec<F>::uz(), -ang));
+            sm::mat<F, 4> tfm (sm::quaternion<F>(sm::vec<F>::uz(), ang));
+#else
+            sm::mat<F, 4> tfm;
+#endif
             sm::vec<F> c = refeye.eye_plane_coordinates[refeye.central_omm];
             c[2] = 0;
-            tfm.pretranslate (-c);
+            tfm.pretranslate (c);
             this->hg.transform (tfm);
-#endif
+
             // Need 2D points for graham scan to find the convex hull of eye_plane_coordinates
             sm::vvec<sm::vec<F, 2>> coords2 (refeye.get_omm_per_eye());
             for (std::uint32_t i = 0; i < refeye.get_omm_per_eye(); ++i) {
@@ -184,17 +217,17 @@ export namespace oces
                 s = bnd2[i-1];
                 e = bnd2[i];
                 sm::bezcurve<F, 3> crv (s, e, e, s); // third order, but make it a straight section from bnd2.
-                this->bcp.add_curve (crv);
+                this->eye_outline.add_curve (crv);
             }
             // Add the closing path
             s = bnd2[bnd2.size() - 1];
             e = bnd2[0];
             sm::bezcurve<F, 3> crv (s, e, e, s); // third order, but make it a straight section from bnd2.
-            this->bcp.add_curve (crv);
+            this->eye_outline.add_curve (crv);
 
 
             // When we set boundary, we haven't closed the loop.
-            this->hg.set_boundary (bcp);
+            this->hg.set_boundary (eye_outline);
 
             // Now resample eye_plane_coordinates[][2], refeye.directions and refeye.acceptance_angles onto hex containers
 
@@ -202,35 +235,28 @@ export namespace oces
             // that the data extends beyond the boundary. I'll extend with a linear extension. Find
             // points around the outside of the eye. For each found point, find a nearby point, and
             // draw a line between the two beyond the boundary.
-            // this->find_extra_coordinates (refeye, this->extra_coordinates); // may also pass in dirns, acceptance angles
+            //this->find_extra_coordinates (refeye, this->extra_coordinates); // may also pass in dirns, acceptance angles
 
             sm::vvec<sm::vec<F>> all_coordinates (refeye.eye_plane_coordinates.size());
             for (std::uint32_t i = 0; i < refeye.eye_plane_coordinates.size(); ++i) {
                 all_coordinates[i] = refeye.eye_plane_coordinates[i].template as<F>();
             }
-            std::cout << "eye_plane_coordinates size " << refeye.eye_plane_coordinates.size() << std::endl;
-            all_coordinates.append (this->extra_coordinates);
-            std::cout << "extra_coordinates size " << this->extra_coordinates.size() << std::endl;
-
-            sm::vvec<F> eye_z0 (refeye.eye_plane_coordinates.size(), 0.0f);
-            for (std::uint32_t i = 0; i < refeye.eye_plane_coordinates.size(); ++i) {
-                eye_z0[i] = refeye.eye_plane_coordinates[i][2];
-            }
-            this->eye_z_range = eye_z0.range();
 
             // start with the z values
             sm::vvec<F> eye_z (all_coordinates.size(), 0.0f);
             coords2.resize (all_coordinates.size());
             for (std::uint32_t i = 0; i < all_coordinates.size(); ++i) {
-                coords2[i][0] = all_coordinates[i][0];
-                coords2[i][1] = all_coordinates[i][1];
-                eye_z[i]      = all_coordinates[i][2];
+                const sm::vec<F> crd = refeye.eye_plane_coordinates[i].template as<F>();
+                coords2[i][0] = crd[0];
+                coords2[i][1] = crd[1];
+                eye_z[i]      = crd[2];
             }
 
-#if 1
+#if 0
             this->hg_z = this->hg.resample_data (eye_z, coords2, 2 * refeye.d_mean);
 #else
-            this->hg_z = this->use_nearest_z (eye_z, coords2);
+            //this->hg_z = this->use_nearest_z (eye_z, coords2);
+            this->hg_z = this->use_average_nearest_z (eye_z, coords2);
 #endif
             //std::cout << "hg_z: " << hg_z << std::endl;
         }

@@ -436,18 +436,6 @@ int main (int argc, char** argv)
     sv->scaleViewMatrix (1000.0f);
     v.addVisualModel (sv);
 
-    // 'Extra coords'
-    sm::vvec<float> sde (heye.extra_coordinates.size(), 0.0f);
-    sv = std::make_unique<mplot::ScatterVisual<float>> (sm::vec<>{});
-    sv->set_parent (v.get_id());
-    sv->setDataCoords (&heye.extra_coordinates);
-    sv->setScalarData (&sde);
-    sv->radiusFixed = 0.000007f;
-    sv->cm.setType (mplot::ColourMapType::Ice);
-    sv->finalize();
-    sv->scaleViewMatrix (1000.0f);
-    v.addVisualModel (sv);
-
     // Add a HexGridVisual to display the HexGrid within the sm::Visual scene
     //sm::vvec<float> hzdata (heye.hg.num(), 0.0f);
     auto hgv = std::make_unique<mplot::HexGridVisual<float>>(&heye.hg, sm::vec<>{});
@@ -475,9 +463,9 @@ int main (int argc, char** argv)
     // Show the boundary that we make use of
     auto bcpv = std::make_unique<mplot::BezCurvePathVisual<float, 3>> (sm::vec<>{});
     bcpv->set_parent (v.get_id());
-    bcpv->bcp = &heye.bcp;
+    bcpv->bcp = &heye.eye_outline;
     bcpv->path_is_loop = true;
-    bcpv->z = heye.eye_z_range.min;
+    bcpv->z = heye.hg_z.range().min;
     bcpv->step  = 0.00001f;
     bcpv->width = bcpv->step / 5.0f;
     bcpv->finalize();
