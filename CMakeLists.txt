@@ -70,11 +70,10 @@ target_sources(oces_viewer
   PUBLIC FILE_SET CXX_MODULES BASE_DIRS ${PROJECT_SOURCE_DIR}
   FILES ${OCES_VIEWER_MODULES}
 )
-target_link_libraries(oces_viewer OpenGL::GL Freetype::Freetype glfw glad mplot_fontdata)
+target_link_libraries(oces_viewer OpenGL::GL Freetype::Freetype glfw glad ${HDF5_LIBRARIES} mplot_fontdata)
 
 set(OCES_HEXY_MODULES
   ${OCES_VIEWER_MODULES}
-  ${OCES_HEXEYE_MODULES}
   ${MPLOT_INCLUDE_PATH}/mplot/HexGridVisual.cppm
   ${MPLOT_INCLUDE_PATH}/mplot/PlaneVisual.cppm
   ${MPLOT_INCLUDE_PATH}/mplot/VectorVisual.cppm
@@ -89,21 +88,20 @@ target_sources(oces2cray
   PUBLIC FILE_SET CXX_MODULES BASE_DIRS ${PROJECT_SOURCE_DIR}
   FILES ${OCES_READER_MODULES}
 )
+target_link_libraries(oces2cray ${HDF5_LIBRARIES})
 
 # Programs that use oces::hexeye need libhdf5
-if(HDF5_FOUND)
-  add_executable(oces_hexy oces_hexy.cpp)
-  target_sources(oces_hexy
-    PUBLIC FILE_SET CXX_MODULES BASE_DIRS ${PROJECT_SOURCE_DIR}
-    FILES ${OCES_HEXY_MODULES}
-  )
-  target_link_libraries(oces_hexy OpenGL::GL Freetype::Freetype glfw glad ${HDF5_LIBRARIES} mplot_fontdata)
+add_executable(oces_hexy oces_hexy.cpp)
+target_sources(oces_hexy
+  PUBLIC FILE_SET CXX_MODULES BASE_DIRS ${PROJECT_SOURCE_DIR}
+  FILES ${OCES_HEXY_MODULES}
+)
+target_link_libraries(oces_hexy OpenGL::GL Freetype::Freetype glfw glad ${HDF5_LIBRARIES} mplot_fontdata)
 
-  # Read OCES format, create a hex equivalent eye and output in compound-ray format (to file)
-  add_executable(oceshex2cray oceshex2cray.cpp)
-  target_sources(oceshex2cray
-    PUBLIC FILE_SET CXX_MODULES BASE_DIRS ${PROJECT_SOURCE_DIR}
-    FILES ${OCES_HEXEYE_MODULES}
-  )
-  target_link_libraries(oceshex2cray ${HDF5_LIBRARIES})
-endif()
+# Read OCES format, create a hex equivalent eye and output in compound-ray format (to file)
+add_executable(oceshex2cray oceshex2cray.cpp)
+target_sources(oceshex2cray
+  PUBLIC FILE_SET CXX_MODULES BASE_DIRS ${PROJECT_SOURCE_DIR}
+  FILES ${OCES_READER_MODULES}
+)
+target_link_libraries(oceshex2cray ${HDF5_LIBRARIES})

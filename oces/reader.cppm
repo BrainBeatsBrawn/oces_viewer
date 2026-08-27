@@ -8,7 +8,6 @@ module;
 #include <stdexcept>
 #include <string>
 #include <sstream>
-#include <fstream>
 
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
@@ -28,362 +27,177 @@ export import sm.mathconst;
 export import sm.vvec;
 export import sm.vec;
 export import sm.mat;
-export import sm.geometry;
+export import sm.hexgrid;
+import sm.hexgrid.hdf;
+export import sm.bezcurvepath;
+import sm.bezcurve;
 import sm.centroid;
+import sm.algo;
+
+export import oces.eye;
 
 export namespace oces
 {
-    // A 2D plane in 3D, defined by an origin and a normal
-    struct plane
+    template<typename F=float>
+    struct hexeye
     {
-        sm::vec<float> origin = {};
-        sm::vec<float> normal = sm::vec<float>::uz();
-    };
+        // The hexy eye we create
+        oces::eye eye;
+        // The flat hexgrid
+        sm::hexgrid<F> hg;
+        // The 'z' positions of the hexgrid eye
+        sm::vvec<F> hg_z;
+        // The boundary around the outer-most ommatidia. The eye outline.
+        sm::bezcurvepath<F> eye_outline;
 
-    // For an *eye* plane, we define a 'forwards' vector in the plane, which is derived from the
-    // uz() direction in the OCES frame of reference. This is therefore a coordinate frame.
-    struct eyeplane
-    {
-        oces::plane p;
-        // ez is p.normal
-        sm::vec<float> ex = sm::vec<float>::ux();
-        sm::vec<float> ey = sm::vec<float>::uy();
-        // This transform takes a coordinate in the eye frame, and converts it to a coordinate in
-        // the OCES model frame.
-        sm::mat<float, 4> eye_to_oces = {};
-    };
+        hexeye(){}
+        // @refeye: the reference OCES eye from which we are created.
+        hexeye (const oces::eye& refeye, const float iod_mult = 1.0f) { this->init (refeye, iod_mult); }
 
-    // This struct matches the layout of mplot::meshgroup
-    struct meshgroup
-    {
-        std::string name;
-        sm::mat<float, 4> transform;
-        sm::vvec<uint32_t> indices;
-        sm::vvec<sm::vec<float>> positions;
-        sm::vvec<sm::vec<float>> normals;
-        sm::vvec<sm::vec<float>> colours;
-        sm::interval<sm::vec<float>> object_aabb;
-        sm::interval<sm::vec<float>> world_aabb;
-        std::array<float, 3> single_colour = {0};
-    };
-
-    // The OCES eye contains the actual data about the ommatidia in the eye (along with an optional
-    // head mesh and mirrors)
-    struct eye
-    {
-        sm::vvec<sm::vec<float, 3>> position = {};    // Units: m
-        sm::vvec<sm::vec<float, 3>> orientation = {}; // Units: m
-        sm::vvec<float> focal_offset = {};            // Units: m
-        sm::vvec<float> diameter = {};                // Optical diameter. Units: m
-        sm::vvec<float> acceptance_angle = {};        // Derived from diameter and focal offset. Units: radians.
-
-        // position, projected onto the eye plane, and in the coordinate system defined by the eye
-        // plane's normal (and what other vector? Probably a projection of uz, the forward axis in
-        // the world.). Maybe just need transform * position.
-        sm::vvec<sm::vec<float, 3>> eye_plane_coordinates = {};
-
-        // The orientations, rotated into the eye plane
-        sm::vvec<sm::vec<float, 3>> eye_plane_orientation = {}; // transform with this->eye_plane.eye_to_oces
-
-        // Horizontal field of view (about the up axis, which is y in OCES)
-        float horz_fov = 0.0f;
-        // Vertical field of view (about the fwds axis, which is z in OCES)
-        float vert_fov = 0.0f;
-
-        // Horizontally projected orientations, for visualization
-        sm::vvec<sm::vec<float, 3>> h_plane_orientation;
-        sm::vvec<sm::vec<float, 3>> h_plane_position;
-        // Vertically projected orientations, for visualization
-        sm::vvec<sm::vec<float, 3>> v_plane_orientation;
-        sm::vvec<sm::vec<float, 3>> v_plane_position;
-
-        // Mean neighbour-neighbour distance of the closest 6 ommatidial neighbours
-        float d_mean = 0.0f;
-
-        // Most central ommatidium index
-        std::uint32_t central_omm = std::numeric_limits<std::uint32_t>::max();
-        // Neighbour indices
-        sm::vec<sm::vec<float>, 6> central_neighbours = {};
-        // The angles
-        sm::vec<float, 6> central_neighbour_angles;
-
-        // Maximum distance between any two ommatidia in the eye (just one, not a mirrored pair)
-        float d_max = 0.0f;
-
-        // A second eye may be mirrored by a mirrorplane
-        std::vector<oces::plane> mirrorplanes;
-        // Store the matrix for the mirrors defined in mirrorplanes
-        std::vector<sm::mat<float, 4>> mirrors;
-
-        // The first/main eye could have a plane whose normal is the average of the orientations and
-        // origin is the mean location of the ommatidia. It also has an 'x' axis related to the 'z'
-        // axis in the world frame. note that this plane has nothing to do with the OCES standard;
-        // it's an addition by Seb to help replace the arbitrary, measured ommatidial positions with
-        // an equivalent, perfectly hexagonal grid of ommatidia for simulation-friendly eyes.
-        oces::eyeplane eye_plane;
-
-        // If we have a head mesh, store it here
-        oces::meshgroup head_mesh;
-
-        // Ready to be used?
-        bool ready = false;
-
-        // Common function to find number of ommatidium in a single eye
-        std::uint32_t get_omm_per_eye() const
+        // Compute the average height, orientation, and other parameters from any point within one
+        // hex-spacing (sm::hexgrid::d) of the current hex
+        void resample_eye_by_averaging (const sm::vvec<F>& eye_z, sm::vvec<F>& hex_z,
+                                        const oces::eye& ref_eye, oces::eye& hex_eye,
+                                        const sm::vvec<sm::vec<F, 2>>& coords2)
         {
-            std::uint32_t omm_per_eye = this->orientation.size();
-            if (!this->mirrorplanes.empty()) {
-                // Two eyes are stored in this->orientation.
-                omm_per_eye /= 2u;
+            // Resize output containers
+            hex_z.resize (this->hg.num(), F{0});
+            hex_eye.orientation.resize (this->hg.num(), sm::vec<float>{});
+            hex_eye.focal_offset.resize (this->hg.num(), 0.0f);
+            hex_eye.diameter.resize (this->hg.num(), 0.0f);
+            hex_eye.acceptance_angle.resize (this->hg.num(), 0.0f);
+
+            const F d_thresh = this->hg.d;
+
+            // For each hex, find all the close real data and copy the z values/average.
+            for (std::uint32_t xi = 0u; xi < this->hg.num(); ++xi) {
+
+                const sm::vec<F, 2> hp = { this->hg.d_x[xi], this->hg.d_y[xi] };
+
+                sm::vvec<std::uint32_t> nearby = {};
+
+                for (std::uint32_t i = 0u; i < coords2.size(); ++i) {
+                    const F _d = (hp - coords2[i]).length(); // distance between coord and our hex
+                    if (_d < d_thresh) { nearby.push_back (i); }
+                }
+
+                // Found nearby points, now use them
+                F z_sum = F{0};
+                sm::vec<float> o_sum = {};
+                float f_sum = 0.0f;
+                float d_sum = 0.0f;
+                float a_sum = 0.0f;
+                for (std::uint32_t i = 0u; i < nearby.size(); ++i) {
+                    z_sum += eye_z[nearby[i]];
+                    o_sum += ref_eye.orientation[nearby[i]];
+                    f_sum += ref_eye.focal_offset[nearby[i]];
+                    d_sum += ref_eye.diameter[nearby[i]];
+                    a_sum += ref_eye.acceptance_angle[nearby[i]];
+                }
+                hex_z[xi] = z_sum / nearby.size();
+                hex_eye.orientation[xi] = o_sum / nearby.size();
+                hex_eye.focal_offset[xi] = f_sum / nearby.size();
+                hex_eye.diameter[xi] = d_sum / nearby.size();
+                hex_eye.acceptance_angle[xi] = a_sum / nearby.size();
             }
-            return omm_per_eye;
         }
 
-        // In eye plane, find the most central OMM
-        void compute_central()
+        // @refeye: the reference OCES eye from which we are created.  @iod_mult: How many multiples
+        // of interommatidial distance should we use to make the hex grid? 1 gives right
+        // interommatidial spacing, but usually results in fewer ommatidia than the real eye
+        void init (const oces::eye& refeye, const float iod_mult = 1.0f)
         {
-            const std::uint32_t omm_per_eye = this->get_omm_per_eye();
-
-            auto ctrd = sm::algo::centroid (this->eye_plane_coordinates).less_one_dim();
-
-            float min_d_c = std::numeric_limits<float>::max();
-            for (std::uint32_t i = 0; i < omm_per_eye; ++i) {
-                sm::vec<float, 2> pi = this->eye_plane_coordinates[i].less_one_dim();
-                float d_c = (pi - ctrd).length();
-                if (d_c < min_d_c) {
-                    this->central_omm = i; // index of central ommatidium
-                    min_d_c = d_c;
-                }
-            }
-
-            if (central_omm > this->eye_plane_coordinates.size()) {
-                std::cerr << "Out of range of position?\n";
+            if (refeye.ready == false) {
+                std::cerr << "Can't use that reference eye as it is not ready. Returning.\n";
                 return;
             }
 
-            sm::vec<float, 6> nearest_6 = {};
-            nearest_6.set_from (std::numeric_limits<float>::max());
-            const auto& pi = this->eye_plane_coordinates[this->central_omm];
-            for (std::uint32_t j = 0; j < omm_per_eye; ++j) {
-                if (j == this->central_omm) { continue; }
-                const auto& pj = this->eye_plane_coordinates[j];
-                const float dij = (pi - pj).length();
-                // If dij is less than any, replace the biggest
-                auto kbig = nearest_6.argmax();
-                for (std::uint32_t k = 0; k < 6; ++k) {
-                    if (dij <= nearest_6[k]) {
-                        nearest_6[kbig] = dij;
-                        this->central_neighbours[kbig] = pj;
-                        break;
-                    }
-                }
+            // Copy to this eye first
+            this->eye = refeye;
+            this->eye.ready = false;
+
+            // Set up hex grid. Need mean ommatidial neighbour distance to create the hexgrid, along with the approximate span.
+            this->hg.init (refeye.d_mean * iod_mult, refeye.d_max * 2.0f);
+
+            // Now use offset and angle to make a transform for the hexgrid
+            F ang = refeye.central_neighbour_angles.min();
+            sm::mat<F, 4> tfm (sm::quaternion<F>(sm::vec<F>::uz(), ang));
+            sm::vec<F> c = refeye.eye_plane_coordinates[refeye.central_omm]; // need eye_plane_orientations
+            c[2] = 0;
+            tfm.pretranslate (c);
+            this->hg.transform (tfm);
+
+            // Need 2D points for graham scan to find the convex hull of eye_plane_coordinates
+            sm::vvec<sm::vec<F, 2>> coords2 (refeye.get_omm_per_eye());
+            for (std::uint32_t i = 0; i < refeye.get_omm_per_eye(); ++i) {
+                coords2[i] = refeye.eye_plane_coordinates[i].less_one_dim().template as<F>();
+            }
+            sm::vvec<sm::vec<F, 2>> bnd2 = sm::geometry::graham_scan (coords2);
+            sm::vec<F, 2> s = {};
+            sm::vec<F, 2> e = {};
+            // From bnd2 make up a set of bezcoords to form a bezcurvepath
+            for (std::uint32_t i = 1; i < bnd2.size(); ++i) {
+                s = bnd2[i-1];
+                e = bnd2[i];
+                sm::bezcurve<F, 3> crv (s, e, e, s); // third order, but make it a straight section from bnd2.
+                this->eye_outline.add_curve (crv);
+            }
+            // Add the closing path
+            s = bnd2[bnd2.size() - 1];
+            e = bnd2[0];
+            sm::bezcurve<F, 3> crv (s, e, e, s); // third order, but make it a straight section from bnd2.
+            this->eye_outline.add_curve (crv);
+
+
+            // When we set boundary, we haven't closed the loop.
+            this->hg.set_boundary (eye_outline);
+
+            // Now resample eye_plane_coordinates[][2], refeye.directions and refeye.acceptance_angles onto hex containers
+            sm::vvec<sm::vec<F>> all_coordinates (refeye.eye_plane_coordinates.size());
+            for (std::uint32_t i = 0; i < refeye.eye_plane_coordinates.size(); ++i) {
+                all_coordinates[i] = refeye.eye_plane_coordinates[i].template as<F>();
             }
 
-            for (std::uint32_t k = 0; k < 6; ++k) {
-                this->central_neighbour_angles[k] = pi.less_one_dim().angle (this->central_neighbours[k].less_one_dim());
+            // start with the z values
+            sm::vvec<F> eye_z (all_coordinates.size(), 0.0f);
+            coords2.resize (all_coordinates.size());
+            for (std::uint32_t i = 0; i < all_coordinates.size(); ++i) {
+                const sm::vec<F> crd = refeye.eye_plane_coordinates[i].template as<F>();
+                coords2[i][0] = crd[0];
+                coords2[i][1] = crd[1];
+                eye_z[i]      = crd[2];
             }
+
+            this->resample_eye_by_averaging (eye_z, this->hg_z, refeye, this->eye, coords2);
+
+            // Build the oces::eye, which means transforming this->hg_z, etc
+            this->eye.position.resize (this->hg.num());
+            auto tfm_position = refeye.eye_plane.eye_to_oces;
+            for (std::uint32_t i = 0; i < this->hg.num(); ++i) {
+                const sm::vec<float> p = {
+                    static_cast<float>(this->hg.d_x[i]),
+                    static_cast<float>(this->hg.d_y[i]),
+                    static_cast<float>(this->hg_z[i])
+                };
+                this->eye.position[i] = (tfm_position * p).less_one_dim();
+            }
+
+            // Having built one eye, need to generate the mirror.
+            this->eye.construct_mirror_eye();
+
+            this->eye.postprocess();
         }
 
-        // Find a mean neighbour-to-neighbour distance. (EyeVisual does something like this, too,
-        // but it finds the min distance for *each* ommatidium rather than an average.
-        // While at it, find d_max - the maximum straight line distance between any pair of ommatidia
-        void compute_neighbour_distance()
+        // Save the eye and the hexgrid to files.
+        void save (const std::string& filename_base)
         {
-            const std::uint32_t omm_per_eye = this->get_omm_per_eye();
-
-            if (omm_per_eye < 7) {
-                // we'd not fill nearest_6 with valid distances
-                std::cerr << "compute_neighbour_distance(): Too few ommatidia for this function; returning\n";
-                return;
-            }
-
-            this->d_mean = 0.0f;
-            this->d_max = 0.0f;
-            for (std::uint32_t i = 0; i < omm_per_eye; ++i) {
-                sm::vec<float, 6> nearest_6 = {};
-                nearest_6.set_from (std::numeric_limits<float>::max());
-                const auto& pi = this->position[i];
-                for (std::uint32_t j = 0; j < omm_per_eye; ++j) {
-                    if (j == i) { continue; }
-                    const auto& pj = this->position[j];
-                    const float dij = (pi - pj).length();
-                    this->d_max = dij > this->d_max ? dij : this->d_max;
-                    // If dij is less than any, replace the biggest
-                    auto kbig = nearest_6.argmax();
-                    for (std::uint32_t k = 0; k < 6; ++k) {
-                        if (dij <= nearest_6[k]) {
-                            nearest_6[kbig] = dij;
-                            break;
-                        }
-                    }
-                }
-                this->d_mean += nearest_6.mean();
-            }
-            this->d_mean /= omm_per_eye;
-        }
-
-        // Project each ommatidium position onto the eye plane. This becomes a vector of 3D values
-        // that have their first two coordinates in the plane, with the third coordinate being the
-        // height above/below the plane.
-        void compute_projections_on_eye_plane()
-        {
-            const std::uint32_t omm_per_eye = this->get_omm_per_eye();
-
-            this->eye_plane_coordinates.resize (omm_per_eye, {});
-            this->eye_plane_orientation.resize (omm_per_eye, {});
-
-            auto tfm_position = this->eye_plane.eye_to_oces.inverse();
-            auto tfm_orientation = tfm_position.linear();
-            for (std::uint32_t i = 0; i < omm_per_eye; ++i) {
-                this->eye_plane_coordinates[i] = (tfm_position * this->position[i]).less_one_dim();
-                this->eye_plane_orientation[i] = tfm_orientation * this->orientation[i];
-            }
-        }
-
-        // Find the normal and origin of this->eye_plane
-        void compute_eye_plane()
-        {
-            const std::uint32_t omm_per_eye = this->get_omm_per_eye();
-            this->eye_plane.p.origin = {};
-            this->eye_plane.p.normal = {};
-            for (std::uint32_t i = 0; i < omm_per_eye; ++i) {
-                this->eye_plane.p.origin += this->position[i];
-                this->eye_plane.p.normal += this->orientation[i];
-            }
-            this->eye_plane.p.origin /= omm_per_eye;
-            this->eye_plane.p.normal.renormalize();
-            this->eye_plane.ey = this->eye_plane.p.normal.cross (sm::vec<float>::uz());
-            this->eye_plane.ey.renormalize();
-            this->eye_plane.ex = this->eye_plane.ey.cross (this->eye_plane.p.normal); // guaranteed unit vector
-
-            this->eye_plane.eye_to_oces.frombasis_inplace (this->eye_plane.ex, this->eye_plane.ey, this->eye_plane.p.normal);
-            // That covers the rotation between the bases, but we also need a translation:
-            this->eye_plane.eye_to_oces.pretranslate (this->eye_plane.p.origin);
-        }
-
-        // Find the maximum fields of view both horizontal and vertical
-        void compute_fov_max()
-        {
-            auto horz_fov_r = sm::interval<float>::search_initialized();
-            auto vert_fov_r = sm::interval<float>::search_initialized();
-
-            const std::uint32_t omm_per_eye = this->get_omm_per_eye();
-
-            this->h_plane_orientation.resize (omm_per_eye);
-            this->v_plane_orientation.resize (omm_per_eye);
-            this->h_plane_position.resize (omm_per_eye);
-            this->v_plane_position.resize (omm_per_eye);
-
-            for (std::uint32_t i = 0; i < omm_per_eye; ++i) {
-                // horz fov
-                auto onto_y_i = sm::geometry::vector_plane_projection (sm::vec<>::uy(), this->orientation[i]);
-                this->h_plane_orientation[i] = onto_y_i;
-                this->h_plane_position[i] = sm::geometry::vector_plane_projection (sm::vec<>::uy(), this->position[i]);
-                // vert fov
-                auto onto_z_i = sm::geometry::vector_plane_projection (sm::vec<>::uz(), this->orientation[i]);
-                this->v_plane_orientation[i] = onto_z_i;
-                this->v_plane_position[i] = sm::geometry::vector_plane_projection (sm::vec<>::uz(), this->position[i]);
-
-                // Compare angle to all others
-                for (std::uint32_t j = 0; j < omm_per_eye; ++j) {
-                    if (j != i) {
-                        // project onto the plane
-                        auto onto_y_j = sm::geometry::vector_plane_projection (sm::vec<>::uy(), this->orientation[j]); // horz fov
-                        auto onto_z_j = sm::geometry::vector_plane_projection (sm::vec<>::uz(), this->orientation[j]); // vert fov
-
-                        float horz_ang = onto_y_i.angle (onto_y_j);
-                        float vert_ang = onto_z_i.angle (onto_z_j);
-                        horz_fov_r.update (horz_ang);
-                        vert_fov_r.update (vert_ang);
-                    }
-                }
-            }
-
-            this->horz_fov = horz_fov_r.max;
-            this->vert_fov = vert_fov_r.max;
-        }
-
-        void postprocess()
-        {
-            this->compute_fov_max();
-            this->compute_neighbour_distance();
-            this->compute_eye_plane();
-            this->compute_projections_on_eye_plane();
-            this->compute_central();
-            this->ready = true;
-        }
-
-        // Make the mirror eye
-        void construct_mirror_eye()
-        {
-            if (!this->mirrorplanes.empty()) {
-
-                this->mirrors.clear();
-
-                // Get size for one eye
-                size_t sz = this->position.size();
-
-                // Make space
-                this->position.resize (2 * sz);
-                this->orientation.resize (2 * sz);
-                this->focal_offset.resize (2 * sz);
-                this->diameter.resize (2 * sz);
-                this->acceptance_angle.resize (2 * sz);
-
-                sm::mat<float, 4> mirror = sm::mat<float, 4>::reflection (this->mirrorplanes[0].origin, this->mirrorplanes[0].normal);
-                this->mirrors.push_back (mirror); // Saved for client code to use
-                for (size_t i = 0; i < sz; ++i) {
-                    // Mirror position and direction
-                    sm::vec<float> mpos = (mirror * this->position[i]).less_one_dim();
-                    sm::vec<float> mdir = (mirror * this->orientation[i]).less_one_dim();
-                    this->position[sz + i] = mpos;
-                    this->orientation[sz + i] = mdir;
-                    // Focal offset, diameter and acceptance angle are simply copied
-                    this->focal_offset[sz + i] = this->focal_offset[i];
-                    this->diameter[sz + i] = this->diameter[i];
-                    this->acceptance_angle[sz + i] = this->acceptance_angle[i];
-                }
-            }
-        }
-
-        void output_compound_ray_csv (const std::string& filename)
-        {
-            if (this->position.size() == this->orientation.size()
-                && this->position.size() == this->focal_offset.size()
-                && this->position.size() == this->acceptance_angle.size()) {
-
-                std::ofstream fout (filename.c_str(), std::ios::out | std::ios::trunc);
-                if (fout.is_open()) {
-                    for (size_t i = 0; i < this->position.size(); ++i) {
-                        fout << this->position[i].str_comma_separated (' ') << " "
-                             << this->orientation[i].str_comma_separated (' ')
-                             << " " << this->acceptance_angle[i]
-                             << " " << std::abs(this->focal_offset[i])
-                             << std::endl;
-                    }
-                    fout.close();
-                }
-            } else {
-                std::cerr << "position, orientation, focal_offset and "
-                          << "diameter/acceptance_angle should all have the same number of elements.\n";
-            }
-        }
-
-        void output_compound_ray_csv()
-        {
-            if (this->position.size() == this->orientation.size()
-                && this->position.size() == this->focal_offset.size()
-                && this->position.size() == this->acceptance_angle.size()) {
-                for (size_t i = 0; i < this->position.size(); ++i) {
-                    std::cout << this->position[i].str_comma_separated (' ') << " "
-                              << this->orientation[i].str_comma_separated (' ')
-                              << " " << this->acceptance_angle[i]
-                              << " " << std::abs(this->focal_offset[i])
-                              << std::endl;
-                }
-            } else {
-                std::cerr << "position, orientation, focal_offset and diameter/acceptance_angle should all have the same number of elements.\n";
-            }
+            // I've been using the suffix .eye in craysim programs. The format is a comma separated table.
+            std::string fname_csv = filename_base + ".eye";
+            std::string fname_hdf = filename_base + ".h5";
+            this->eye.output_compound_ray_csv (fname_csv);
+            std::cout << "Saved hexeye::eye to " << fname_csv << "\n";
+            sm::hexgrid_save (this->hg, fname_hdf);
+            std::cout << "Saved hexeye::hg to " << fname_hdf << "\n";
         }
     };
 
@@ -393,6 +207,9 @@ export namespace oces
         std::string base_dir = "";
 
         oces::eye eye;
+
+        // Optional hex-equivalent eye
+        oces::hexeye<float> heye;
 
         // set true to ignore any mirrors while reading
         bool ignore_mirrors = false;
@@ -418,6 +235,17 @@ export namespace oces
 
         // Stats etc to be computed after reading
         void postprocess() { this->eye.postprocess(); }
+
+        // After reading the eye, you can call this to set up the hexeye
+        void setup_hexeye (const float iod_mult = 1.0f)
+        {
+            if (this->read_success == false) {
+                std::cerr << "OCES eye has not been read, so can't setup hex-equivalent. Returning.\n";
+                return;
+            }
+
+            this->heye.init (this->eye, iod_mult);
+        }
 
         void read()
         {

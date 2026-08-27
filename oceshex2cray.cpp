@@ -6,7 +6,6 @@
 #include <string>
 
 import oces.reader;
-import oces.hexeye;
 
 namespace local
 {
@@ -30,9 +29,9 @@ int main (int argc, char** argv)
     std::string filename (argv[1]);
 
     oces::reader oces_reader (filename);
-    oces::hexeye<float> heye (oces_reader.eye, 1.0f);
+    oces_reader.setup_hexeye (1.0f);
     local::stripFileSuffix (filename);
-    heye.save (filename);
+    oces_reader.heye.save (filename);
 
     return 0;
 }
