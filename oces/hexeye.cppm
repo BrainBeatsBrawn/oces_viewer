@@ -39,10 +39,11 @@ export namespace oces
         // @refeye: the reference OCES eye from which we are created.
         hexeye (const oces::eye& refeye, const float iod_mult = 1.0f) { this->init (refeye, iod_mult); }
 
-        // Average height, orientation, and other parameters from any point within one or two hexes of the current hex
-        void use_average_nearest_z (const sm::vvec<F>& eye_z, sm::vvec<F>& hex_z,
-                                    const oces::eye& ref_eye, oces::eye& hex_eye,
-                                    const sm::vvec<sm::vec<F, 2>>& coords2)
+        // Compute the average height, orientation, and other parameters from any point within one
+        // hex-spacing (sm::hexgrid::d) of the current hex
+        void resample_eye_by_averaging (const sm::vvec<F>& eye_z, sm::vvec<F>& hex_z,
+                                        const oces::eye& ref_eye, oces::eye& hex_eye,
+                                        const sm::vvec<sm::vec<F, 2>>& coords2)
         {
             // Resize output containers
             hex_z.resize (this->hg.num(), F{0});
@@ -51,7 +52,7 @@ export namespace oces
             hex_eye.diameter.resize (this->hg.num(), 0.0f);
             hex_eye.acceptance_angle.resize (this->hg.num(), 0.0f);
 
-            const F d_thresh = this->hg.d * F{1};
+            const F d_thresh = this->hg.d;
 
             // For each hex, find all the close real data and copy the z values/average.
             for (std::uint32_t xi = 0u; xi < this->hg.num(); ++xi) {
@@ -152,8 +153,7 @@ export namespace oces
                 eye_z[i]      = crd[2];
             }
 
-            // this->hg_z = this->hg.resample_data (eye_z, coords2, 2 * refeye.d_mean);
-            this->use_average_nearest_z (eye_z, this->hg_z, refeye, this->eye, coords2);
+            this->resample_eye_by_averaging (eye_z, this->hg_z, refeye, this->eye, coords2);
 
             // Build the oces::eye, which means transforming this->hg_z, etc
             this->eye.position.resize (this->hg.num());
