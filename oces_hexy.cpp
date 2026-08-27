@@ -172,6 +172,7 @@ mplot::compoundray::EyeVisual<>* make_eye_model (OcesVisual& v, oces::eye& oces_
     eyevm->show_rays = v.view_options.test (viewopts::show_rays);
     eyevm->show_cones = false;
     eyevm->show_fov = v.view_options.test (viewopts::show_fov);
+    eyevm->border_width = 100 * std::numeric_limits<float>::epsilon();
     eyevm->pre_set_cone_length (0.005f);
     eyevm->finalize();
 
