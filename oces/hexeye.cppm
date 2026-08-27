@@ -176,7 +176,8 @@ export namespace oces
         // Save the eye and the hexgrid to files.
         void save (const std::string& filename_base)
         {
-            std::string fname_csv = filename_base + ".csv";
+            // I've been using the suffix .eye in craysim programs. The format is a comma separated table.
+            std::string fname_csv = filename_base + ".eye";
             std::string fname_hdf = filename_base + ".h5";
             this->eye.output_compound_ray_csv (fname_csv);
             std::cout << "Saved hexeye::eye to " << fname_csv << "\n";
