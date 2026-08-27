@@ -18,7 +18,7 @@ find_package(OpenGL REQUIRED)
 find_package(glfw3 3.3 REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(nlohmann_json REQUIRED)
-find_package(HDF5)
+find_package(HDF5 REQUIRED)
 if(HDF5_FOUND)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${HDF5_DEFINITIONS}")
 endif()
@@ -53,6 +53,11 @@ set(OCES_VM_MODULES
   ${MPLOT_INCLUDE_PATH}/mplot/SphereVisual.cppm
   ${MPLOT_INCLUDE_PATH}/mplot/ColourBarVisual.cppm
   ${MPLOT_INCLUDE_PATH}/mplot/QuiverVisual.cppm
+  ${MPLOT_INCLUDE_PATH}/mplot/HexGridVisual.cppm
+  ${MPLOT_INCLUDE_PATH}/mplot/PlaneVisual.cppm
+  ${MPLOT_INCLUDE_PATH}/mplot/VectorVisual.cppm
+  ${MPLOT_INCLUDE_PATH}/mplot/ScatterVisual.cppm
+  ${MPLOT_INCLUDE_PATH}/mplot/BezCurvePathVisual.cppm
   ${SM_JCV_MODULES}
   ${MPLOT_INCLUDE_PATH}/mplot/compoundray/EyeVisual.cppm
 )
@@ -72,16 +77,6 @@ target_sources(oces_viewer
 )
 target_link_libraries(oces_viewer OpenGL::GL Freetype::Freetype glfw glad ${HDF5_LIBRARIES} mplot_fontdata)
 
-set(OCES_HEXY_MODULES
-  ${OCES_VIEWER_MODULES}
-  ${MPLOT_INCLUDE_PATH}/mplot/HexGridVisual.cppm
-  ${MPLOT_INCLUDE_PATH}/mplot/PlaneVisual.cppm
-  ${MPLOT_INCLUDE_PATH}/mplot/VectorVisual.cppm
-  ${MPLOT_INCLUDE_PATH}/mplot/ScatterVisual.cppm
-  ${MPLOT_INCLUDE_PATH}/mplot/BezCurvePathVisual.cppm
-)
-list(REMOVE_DUPLICATES OCES_HEXY_MODULES)
-
 # OCES format to compound-ray format (text output)
 add_executable(oces2cray oces2cray.cpp)
 target_sources(oces2cray
@@ -89,14 +84,6 @@ target_sources(oces2cray
   FILES ${OCES_READER_MODULES}
 )
 target_link_libraries(oces2cray ${HDF5_LIBRARIES})
-
-# Programs that use oces::hexeye need libhdf5
-add_executable(oces_hexy oces_hexy.cpp)
-target_sources(oces_hexy
-  PUBLIC FILE_SET CXX_MODULES BASE_DIRS ${PROJECT_SOURCE_DIR}
-  FILES ${OCES_HEXY_MODULES}
-)
-target_link_libraries(oces_hexy OpenGL::GL Freetype::Freetype glfw glad ${HDF5_LIBRARIES} mplot_fontdata)
 
 # Read OCES format, create a hex equivalent eye and output in compound-ray format (to file)
 add_executable(oceshex2cray oceshex2cray.cpp)

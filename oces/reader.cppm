@@ -38,6 +38,9 @@ export import oces.eye;
 
 export namespace oces
 {
+    // An oces::reader may compute a hex equivalent version of the eye read from file. This struct
+    // holds the logic for converting from an eye of arbitrarily placed ommatidia to a hexagonally
+    // arranged eye.
     template<typename F=float>
     struct hexeye
     {
@@ -206,10 +209,24 @@ export namespace oces
         std::string filename;
         std::string base_dir = "";
 
+        // Original eye as read from the hexgrid
         oces::eye eye;
 
-        // Optional hex-equivalent eye
+        // Hex-equivalent eye and its associated hexgrid
         oces::hexeye<float> heye;
+
+        // Set true if this->eye has been replaced with the hex equivalent eye (via setup_hexeye())
+        bool eye_is_hex = false;
+
+        // Get a pointer to the main eye
+        oces::eye* get_eye()
+        {
+            if (this->eye_is_hex == true) {
+                return &this->heye.eye;
+            } else {
+                return &this->eye;
+            }
+        }
 
         // set true to ignore any mirrors while reading
         bool ignore_mirrors = false;
@@ -245,7 +262,14 @@ export namespace oces
                 return;
             }
 
-            this->heye.init (this->eye, iod_mult);
+            // Optional hex-equivalent eye
+            heye.init (this->eye, iod_mult);
+            if (heye.eye.ready == false) {
+                std::cerr << "OCES eye did not convert to a hex-equivalent. Returning.\n";
+                return;
+            }
+
+            this->eye_is_hex = true;
         }
 
         void read()
