@@ -231,6 +231,7 @@ export namespace oces
         {
             this->filename = _filename;
             this->read();
+            this->postprocess();
         }
 
         // Stats etc to be computed after reading
