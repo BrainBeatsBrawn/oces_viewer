@@ -84,11 +84,3 @@ target_sources(oces2cray
   FILES ${OCES_READER_MODULES}
 )
 target_link_libraries(oces2cray ${HDF5_LIBRARIES})
-
-# Read OCES format, create a hex equivalent eye and output in compound-ray format (to file)
-add_executable(oceshex2cray oceshex2cray.cpp)
-target_sources(oceshex2cray
-  PUBLIC FILE_SET CXX_MODULES BASE_DIRS ${PROJECT_SOURCE_DIR}
-  FILES ${OCES_READER_MODULES}
-)
-target_link_libraries(oceshex2cray ${HDF5_LIBRARIES})
