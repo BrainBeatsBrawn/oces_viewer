@@ -123,7 +123,7 @@ export namespace oces
             this->hg.init (refeye.d_mean * iod_mult, refeye.d_max * 2.0f);
 
             // Now use offset and angle to make a transform for the hexgrid
-            F ang = refeye.central_neighbour_angles.min();
+            F ang = refeye.central_neighbour_angles.min() + sm::mathconst<float>::pi_over_6;
             sm::mat<F, 4> tfm (sm::quaternion<F>(sm::vec<F>::uz(), ang));
             sm::vec<F> c = refeye.eye_plane_coordinates[refeye.central_omm]; // need eye_plane_orientations
             c[2] = 0;
