@@ -14,13 +14,17 @@ macro(setup_module_variables_for_oces_reader oces_directory maths_directory)
     ${SM_VVEC_MODULES}
     ${SM_VEC_MODULES}
     ${SM_MAT_MODULES}
+    ${maths_directory}/sm/centroid.cppm
     ${SM_GEOMETRY_MODULES}
   )
   list(REMOVE_DUPLICATES OCES_READER_MATHS_MODULES)
 
   set(OCES_READER_MODULES
     ${OCES_READER_MATHS_MODULES}
+    ${oces_directory}/oces/eye.cppm
     ${oces_directory}/oces/reader.cppm
+    ${SM_VVEC_MODULES}
+    ${SM_HEXGRID_HDF_MODULES}
   )
   list(REMOVE_DUPLICATES OCES_READER_MODULES)
 
