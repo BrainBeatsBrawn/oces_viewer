@@ -3,7 +3,7 @@
 # build process itself, and by client projects.
 #
 
-macro(setup_module_variables_for_oces_reader oces_directory maths_directory)
+macro(setup_module_variables_for_oces_viewer oces_directory maths_directory)
 
   include(${maths_directory}/cmake/module_definitions.cmake)
   setup_module_variables_for_maths (${maths_directory} "") # Don't use json, so pass empty
