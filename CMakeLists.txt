@@ -41,10 +41,17 @@ add_library(mplot_fontdata STATIC ${MPLOT_INCLUDE_PATH}/mplot/VisualFaceAsm.cpp)
 
 # Include maths module defs
 include(${PROJECT_SOURCE_DIR}/extern/maths/cmake/module_definitions.cmake)
-setup_module_variables_for_maths (${PROJECT_SOURCE_DIR}/extern/maths ${PROJECT_SOURCE_DIR}/extern/json)
+setup_module_variables_for_maths (
+  ${PROJECT_SOURCE_DIR}/extern/maths
+  ${PROJECT_SOURCE_DIR}/extern/json
+)
 # Include mathplot module defs
 include(${PROJECT_SOURCE_DIR}/extern/mathplot/cmake/module_definitions.cmake)
-setup_module_variables_for_mathplot (${PROJECT_SOURCE_DIR}/extern/mathplot ${PROJECT_SOURCE_DIR}/extern/maths ${PROJECT_SOURCE_DIR}/extern/json)
+setup_module_variables_for_mathplot (
+  ${PROJECT_SOURCE_DIR}/extern/mathplot
+  ${PROJECT_SOURCE_DIR}/extern/maths
+  ${PROJECT_SOURCE_DIR}/extern/json
+)
 # Add our own cmake directory
 include(${PROJECT_SOURCE_DIR}/cmake/module_definitions.cmake)
 setup_module_variables_for_oces_viewer (${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/extern/maths)
@@ -59,7 +66,9 @@ set(OCES_VM_MODULES
   ${MPLOT_INCLUDE_PATH}/mplot/ScatterVisual.cppm
   ${MPLOT_INCLUDE_PATH}/mplot/BezCurvePathVisual.cppm
   ${SM_JCV_MODULES}
-  ${MPLOT_INCLUDE_PATH}/mplot/compoundray/EyeVisual.cppm
+  # Craysim provides the EyeVisual
+  ${PROJECT_SOURCE_DIR}/extern/craysim/modules/compoundray/Ommatidium.cppm
+  ${PROJECT_SOURCE_DIR}/extern/craysim/modules/compoundray/EyeVisual.cppm
 )
 
 # View the eye with a mathplot-based program

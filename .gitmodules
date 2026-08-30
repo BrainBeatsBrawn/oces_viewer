@@ -13,3 +13,6 @@
 [submodule "extern/json"]
 	path = extern/json
 	url = https://github.com/nlohmann/json
+[submodule "extern/craysim"]
+	path = extern/craysim
+	url = https://github.com/BrainBeatsBrawn/craysim

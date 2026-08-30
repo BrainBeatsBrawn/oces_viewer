@@ -20,7 +20,7 @@ import mplot.vectorvisual;
 import mplot.scattervisual;
 import mplot.hexgridvisual;
 import mplot.bezcurvepathvisual;
-import mplot.compoundray.eyevisual;
+import craysim.compoundray.eyevisual;
 import sm.flags;
 import sm.centroid;
 
@@ -120,10 +120,10 @@ protected:
 };
 
 // Helper to make (and remake) the eye model
-mplot::compoundray::EyeVisual<>* make_eye_model (OcesVisual& v, oces::eye* oces_eye,
-                                                 std::vector<mplot::compoundray::Ommatidium>* ommatidia,
-                                                 std::vector<std::array<float, 3>>* ommatidiaColours,
-                                                 mplot::compoundray::EyeVisual<>* ep)
+craysim::compoundray::EyeVisual<>* make_eye_model (OcesVisual& v, oces::eye* oces_eye,
+                                                   std::vector<craysim::compoundray::Ommatidium>* ommatidia,
+                                                   std::vector<std::array<float, 3>>* ommatidiaColours,
+                                                   craysim::compoundray::EyeVisual<>* ep)
 {
     if (ep != nullptr) { v.removeVisualModel (ep); }
 
@@ -135,16 +135,16 @@ mplot::compoundray::EyeVisual<>* make_eye_model (OcesVisual& v, oces::eye* oces_
     // Set a fixed colour for head mesh
     oces_eye->head_mesh.single_colour = {0.345f, 0.122f, 0.082f};
 
-    auto eyevm = std::make_unique<mplot::compoundray::EyeVisual<>> (sm::vec<>{}, ommatidiaColours, ommatidia, head_mesh_ptr);
+    auto eyevm = std::make_unique<craysim::compoundray::EyeVisual<>> (sm::vec<>{}, ommatidiaColours, ommatidia, head_mesh_ptr);
     eyevm->set_parent (v.get_id());
     eyevm->name = "CompoundRay Eye";
     eyevm->show_cones = true;
 
-    [[maybe_unused]] auto ptype = mplot::compoundray::EyeVisual<>::projection_type::equirectangular; // mercator, equirectangular or cassini
+    [[maybe_unused]] auto ptype = craysim::compoundray::EyeVisual<>::projection_type::equirectangular; // mercator, equirectangular or cassini
     if (v.projstr.find ("merc") != std::string::npos) {
-        ptype = mplot::compoundray::EyeVisual<>::projection_type::mercator;
+        ptype = craysim::compoundray::EyeVisual<>::projection_type::mercator;
     } else if (v.projstr.find ("cass") != std::string::npos) {
-        ptype = mplot::compoundray::EyeVisual<>::projection_type::cassini;
+        ptype = craysim::compoundray::EyeVisual<>::projection_type::cassini;
     }
 
     sm::mat<float, 4> twod_tr;
@@ -174,7 +174,7 @@ mplot::compoundray::EyeVisual<>* make_eye_model (OcesVisual& v, oces::eye* oces_
     eyevm->pre_set_cone_length (0.005f);
     eyevm->finalize();
 
-    mplot::compoundray::EyeVisual<>* _ep = v.addVisualModel (eyevm);
+    craysim::compoundray::EyeVisual<>* _ep = v.addVisualModel (eyevm);
     _ep->scaleViewMatrix (1000.0f); // Tiny ant eyes are scaled by a big factor to be in more useable model units
     v.view_options.reset (viewopts::needs_update);
     return _ep;
@@ -219,7 +219,7 @@ int main (int argc, char** argv)
     if (a_hexy) { oces_reader.setup_hexeye(); }
 
     // Now view
-    auto v = OcesVisual(1024, 768, "mplot::compoundray::EyeVisual");
+    auto v = OcesVisual(1024, 768, "craysim::compoundray::EyeVisual");
     v.lightingEffects (true);
 
     // Set some options in OcesVisual
@@ -266,7 +266,7 @@ int main (int argc, char** argv)
     // defined in "cameras/CompoundEyeDataTypes.h" in compound ray, mplot::Ommatidium is a
     // mplot/Seb's maths style equivalent. It contains 2 3D float vectors and two scalar floating point
     // values.
-    auto ommatidia = std::make_unique<std::vector<mplot::compoundray::Ommatidium>>();
+    auto ommatidia = std::make_unique<std::vector<craysim::compoundray::Ommatidium>>();
     std::vector<std::array<float, 3>> ommatidiaColours;
 
     // Get a pointer to the main eye from the reader (may be original or the hexy eye)
