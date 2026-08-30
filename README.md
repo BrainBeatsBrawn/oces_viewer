@@ -21,7 +21,7 @@ git submodule init
 git submodule update
 ```
 
-The submodules are: [sebsjames/mathplot](https://github.com/sebsjames/mathplot), [sebsjames/maths](https://github.com/sebsjames/maths), [args](https://github.com/Taywee/args) and [tinygltf](https://github.com/sebsjames/tinygltf).
+The submodules are: [BrainBeatsBrawn/craysim](https://github.com/BrainBeatsBrawn/craysim), [sebsjames/mathplot](https://github.com/sebsjames/mathplot), [sebsjames/maths](https://github.com/sebsjames/maths), [args](https://github.com/Taywee/args) and [tinygltf](https://github.com/sebsjames/tinygltf).
 
 
 ## Build tools
