@@ -216,7 +216,11 @@ int main (int argc, char** argv)
     if (oces_reader.read_success == false) { return -1; }
 
     // if user gave -6 option, then convert to hexagonal equivalent
-    if (a_hexy) { oces_reader.setup_hexeye(); }
+    if (a_hexy) {
+        oces_reader.setup_hexeye();
+        std::cout << "Created hex-equivalent eye with " << oces_reader.heye.hg.num()
+                  << " hexagonal elements ('hexy ommatidia')\n";
+    }
 
     // Now view
     auto v = OcesVisual(1024, 768, "craysim::compoundray::EyeVisual");
