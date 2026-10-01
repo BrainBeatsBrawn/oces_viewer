@@ -244,10 +244,10 @@ export namespace oces
             this->postprocess();
         }
 
-        void read (const std::string& _filename)
+        void read (const std::string& _filename, const bool quiet = false)
         {
             this->filename = _filename;
-            this->read();
+            this->read (quiet);
             this->postprocess();
         }
 
@@ -272,7 +272,7 @@ export namespace oces
             this->eye_is_hex = true;
         }
 
-        void read()
+        void read (const bool quiet = false)
         {
             tinygltf::Model model;
             tinygltf::TinyGLTF loader;
@@ -280,16 +280,18 @@ export namespace oces
             std::string warn = "";
 
             bool r_loader = loader.LoadASCIIFromFile (&model, &err, &warn, this->filename);
-            if (!warn.empty()) { std::cerr << "glTF WARNING: " << warn << std::endl; }
+            if (!warn.empty() && quiet == false) { std::cerr << "glTF WARNING: " << warn << std::endl; }
             if (r_loader == false) {
-                std::cerr << "Failed to load GLTF file '" << filename << std::endl;
+                if (quiet == false) {
+                    std::cerr << "Failed to load GLTF file '" << filename << "' with error '" << err << "'" << std::endl;
+                }
                 return;
             }
 
             // We want to access extensions for the OCES stuff
             loader.SetStoreOriginalJSONForExtrasAndExtensions (true);
 
-            // Calculate and store the path to the file bar the file iteself for relative includes
+            // Calculate and store the path to the directory containing the file for relative includes
             this->base_dir = "";
             std::size_t slashPos = filename.find_last_of ("/\\") + 1; // (+1 to include the slash)
             if (slashPos != std::string::npos) { this->base_dir = filename.substr (0, slashPos); }
@@ -298,7 +300,7 @@ export namespace oces
             for (const auto& eu : model.extensionsUsed) {
                 if (eu == "OCES_eyes") { oces_eyes_used = true; }
             }
-            if (!oces_eyes_used) {
+            if (!oces_eyes_used && quiet == false) {
                 std::cerr << "Warning: Did not find \"OCES_eyes\" in \"extensions\" section of glTF. Carrying on anyway...\n";
             }
 
@@ -317,7 +319,7 @@ export namespace oces
                 if (!ev.Has ("eyes")) { continue; }
 
                 auto ommatidialProperties = ev.Get ("ommatidialProperties");
-                if (!ommatidialProperties.IsArray()) {
+                if (!ommatidialProperties.IsArray() && quiet == false) {
                     std::cerr << "This ommatidialProperties is not an array; try next extension\n";
                     continue;
                 }
@@ -352,24 +354,32 @@ export namespace oces
                     for (size_t i = 0; i < eyes.Size(); ++i) {
                         // Process eye
                         if (eyes.Get(i).Get("type").Get<std::string>() != "POINT_OMMATIDIAL") {
-                            std::cerr << "Don't know how to process an OCES eye of type '"
-                                      << eyes.Get(i).Get("type").Get<std::string>() << "'\n";
+                            if (quiet == false) {
+                                std::cerr << "Don't know how to process an OCES eye of type '"
+                                          << eyes.Get(i).Get("type").Get<std::string>() << "'\n";
+                            }
                             continue;
                         }
 
                         auto op = eyes.Get(i).Get("ommatidialProperties");
 
                         if (!op.IsObject()) {
-                            std::cerr << "Badly formed OCES glTF (OCES_eyes.ommatidialProperties is not a JSON object)\n";
+                            if (quiet == false) {
+                                std::cerr << "Badly formed OCES glTF (OCES_eyes.ommatidialProperties is not a JSON object)\n";
+                            }
                             continue;
                         }
                         if (!(op.Has("POSITION") && op.Has("ORIENTATION") && op.Has("FOCAL_OFFSET") && op.Has("DIAMETER"))) {
-                            std::cerr << "Badly formed OCES glTF (OCES_eyes.ommatidialProperties is not a JSON object)\n";
+                            if (quiet == false) {
+                                std::cerr << "Badly formed OCES glTF (OCES_eyes.ommatidialProperties is not a JSON object)\n";
+                            }
                             continue;
                         }
 
-                        std::cerr << "Processing eye " << eyes.Get(i).Get("name").Get<std::string>()
-                                  << " of type " << eyes.Get(i).Get("type").Get<std::string>() << std::endl;
+                        if (quiet == false) {
+                            std::cerr << "Processing eye " << eyes.Get(i).Get("name").Get<std::string>()
+                                      << " of type " << eyes.Get(i).Get("type").Get<std::string>() << std::endl;
+                        }
 
                         // Good to go
                         eyes_OmmatidialProperties[i]["POSITION"] = op.Get("POSITION").Get<int>();
@@ -455,12 +465,15 @@ export namespace oces
                 }
 
                 // Compute statistics on the eye
-                std::cerr << "Number of ommatidia: " << this->eye.position.size() << std::endl;
-                std::cerr << "Optical diameter mean/std: "
-                          << this->eye.diameter.mean() << " (" << this->eye.diameter.std() << ")\n";
-                std::cerr << "Acceptance angle mean/std degrees: "
-                          << this->eye.acceptance_angle.mean() * sm::mathconst<float>::rad2deg
-                          << " (" << this->eye.acceptance_angle.std() * sm::mathconst<float>::rad2deg << ")\n";
+                if (quiet == false) {
+                    std::cerr << "Number of ommatidia: " << this->eye.position.size() << std::endl;
+                    std::cerr << "Optical diameter mean/std: "
+                              << this->eye.diameter.mean() << " (" << this->eye.diameter.std() << ")\n";
+                    std::cerr << "Acceptance angle mean/std degrees: "
+                              << this->eye.acceptance_angle.mean() * sm::mathconst<float>::rad2deg
+                              << " (" << this->eye.acceptance_angle.std() * sm::mathconst<float>::rad2deg << ")\n";
+                }
+
                 // FOV
                 // Find mean direction
                 sm::vec<float> mean_dir = {};
@@ -475,7 +488,9 @@ export namespace oces
                     auto a = ori.angle (mean_dir);
                     ang_from_mean.push_back (a);
                 }
-                std::cerr << "ang_from_mean max " << ang_from_mean.max() * sm::mathconst<float>::rad2deg << std::endl;
+                if (quiet == false) {
+                    std::cerr << "ang_from_mean max " << ang_from_mean.max() * sm::mathconst<float>::rad2deg << std::endl;
+                }
 
                 // Act on mirror planes and add to position arrays
                 if (!this->eye.mirrorplanes.empty() && !this->ignore_mirrors) {

@@ -52,6 +52,16 @@ export namespace oces
         std::array<float, 3> single_colour = {0};
     };
 
+    // This is a binary-compatible equivalent to struct cray::Ommatidium from cameras/CompoundEyeDataTypes.h in compound-ray.
+    // Use reinterpret_cast<std::vector<oces::ommatidium>*>(ommatidia) if your ommatidia originate inside compound ray.
+    struct ommatidium
+    {
+        sm::vec<float, 3> position = {};
+        sm::vec<float, 3> direction = {};
+        float acceptance_angle = 0.0f;
+        float focal_offset = 0.0f;
+    };
+
     // The OCES eye contains the actual data about the ommatidia in the eye (along with an optional
     // head mesh and mirrors)
     struct eye
@@ -142,7 +152,7 @@ export namespace oces
             }
 
             if (central_omm > this->eye_plane_coordinates.size()) {
-                std::cerr << "Out of range of position?\n";
+                // std::cerr << "Out of range of position?\n";
                 return;
             }
 
@@ -178,7 +188,7 @@ export namespace oces
 
             if (omm_per_eye < 7) {
                 // we'd not fill nearest_6 with valid distances
-                std::cerr << "compute_neighbour_distance(): Too few ommatidia for this function; returning\n";
+                // std::cerr << "compute_neighbour_distance(): Too few ommatidia for this function; returning\n";
                 return;
             }
 
@@ -369,6 +379,27 @@ export namespace oces
             } else {
                 std::cerr << "position, orientation, focal_offset and diameter/acceptance_angle should all have the same number of elements.\n";
             }
+        }
+
+        std::vector<oces::ommatidium> omm_vector()
+        {
+            std::vector<oces::ommatidium> rtn;
+            if (this->position.size() == this->orientation.size()
+                && this->position.size() == this->focal_offset.size()
+                && this->position.size() == this->acceptance_angle.size()) {
+                rtn.resize (this->position.size());
+                for (size_t i = 0; i < this->position.size(); ++i) {
+                    rtn[i] = oces::ommatidium {
+                        this->position[i],
+                        this->orientation[i],
+                        this->acceptance_angle[i],
+                        std::abs(this->focal_offset[i])
+                    };
+                }
+            } else {
+                std::cerr << "position, orientation, focal_offset and diameter/acceptance_angle should all have the same number of elements.\n";
+            }
+            return rtn;
         }
     };
 }
