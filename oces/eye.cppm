@@ -137,8 +137,12 @@ export namespace oces
             oces::eye_side side = oces::eye_side::unknown;
             if (!this->ready) { return side; }
 
+            // If no mirror, work out sum(x) for all orientations; if there's a mirror, then sum(x) over the first half.
+            std::uint32_t sz = this->orientation.size();
+            if (!this->mirrors.empty()) { sz /= 2u; }
+
             float x = 0.0f;
-            for (auto orient : this->orientation) { x += orient[0]; }
+            for (std::uint32_t i = 0u; i < sz; ++i) { x += this->orientation[i][0]; }
 
             if (x < 0.0f) {
                 side = oces::eye_side::right;
