@@ -237,8 +237,13 @@ export namespace oces
             }
             this->eye_plane.p.origin /= omm_per_eye;
             this->eye_plane.p.normal.renormalize();
+            // The ommatidia are arranged with 'z' as the forward direction. So we cross the eye
+            // plane normal with 'z' which gives us our 'up wrt to the eye' 'y' direction.
             this->eye_plane.ey = this->eye_plane.p.normal.cross (sm::vec<float>::uz());
             this->eye_plane.ey.renormalize();
+            // Then, ey cross normal gives us an 'x' direction which is forwards. So when you hide
+            // the head, and press 'z' to show the reprojection axes in oces_viewer, the red 'x'
+            // axis is 'forwards for the animal'.
             this->eye_plane.ex = this->eye_plane.ey.cross (this->eye_plane.p.normal); // guaranteed unit vector
 
             this->eye_plane.eye_to_oces.frombasis_inplace (this->eye_plane.ex, this->eye_plane.ey, this->eye_plane.p.normal);
