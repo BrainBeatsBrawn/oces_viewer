@@ -62,6 +62,13 @@ export namespace oces
         float focal_offset = 0.0f;
     };
 
+    enum class eye_side : std::uint8_t
+    {
+        unknown,
+        left,
+        right
+    };
+
     // The OCES eye contains the actual data about the ommatidia in the eye (along with an optional
     // head mesh and mirrors)
     struct eye
@@ -122,6 +129,25 @@ export namespace oces
 
         // Ready to be used?
         bool ready = false;
+
+        // An eye is 'right' if it 'looks in the negative x direction'. That is, if the mean value of
+        // the x component of its orientation is < 0. (It is 'left' if this value is > 0).
+        oces::eye_side get_eye_side() const
+        {
+            oces::eye_side side = oces::eye_side::unknown;
+            if (!this->ready) { return side; }
+
+            float x = 0.0f;
+            for (auto orient : this->orientation) { x += orient[0]; }
+
+            if (x < 0.0f) {
+                side = oces::eye_side::right;
+            } else if (x > 0.0f) {
+                side = oces::eye_side::left;
+            }
+
+            return side;
+        }
 
         // Common function to find number of ommatidium in a single eye
         std::uint32_t get_omm_per_eye() const

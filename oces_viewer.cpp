@@ -451,6 +451,17 @@ int main (int argc, char** argv)
     std::cout << "Lens diameter range: " << peye->diameter.range()
               << ", mean: " << peye->diameter.mean() << std::endl;
 
+    oces::eye_side eside = oces_reader.eye.get_eye_side();
+    std::cout << "The main eye is a ";
+    if (eside == oces::eye_side::right) {
+        std::cout << "right";
+    } else if (eside == oces::eye_side::left) {
+        std::cout << "left";
+    } else {
+        std::cout << "unknown";
+    }
+    std::cout << " side eye\n";
+
     sm::flags<viewopts> last_view_options = v.view_options;
     while (!v.readyToFinish()) {
         v.waitevents (0.016);
