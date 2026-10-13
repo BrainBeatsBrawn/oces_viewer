@@ -220,6 +220,8 @@ int main (int argc, char** argv)
         oces_reader.setup_hexeye();
         std::cout << "Created hex-equivalent eye with " << oces_reader.heye.hg.num()
                   << " hexagonal elements ('hexy ommatidia')\n";
+        std::cout << "and " << oces_reader.heye.hg_mirr.num()
+                  << " mirror hexy ommatidia\n";
     }
 
     // Now view

@@ -46,12 +46,18 @@ export namespace oces
     {
         // The hexy eye we create
         oces::eye eye;
-        // The flat hexgrid
+        // The flat hexgrid for the first/main eye
         sm::hexgrid<F> hg;
+        // The flat hexgrid for the mirror eye (if it exists)
+        sm::hexgrid<F> hg_mirr;
         // The 'z' positions of the hexgrid eye
         sm::vvec<F> hg_z;
+        // The 'z' positions of the hexgrid eye, mirror version
+        sm::vvec<F> hg_z_mirr;
         // The boundary around the outer-most ommatidia. The eye outline.
         sm::bezcurvepath<F> eye_outline;
+        // The boundary around the outer-most ommatidia for the mirrored eye.
+        sm::bezcurvepath<F> eye_outline_mirr;
 
         hexeye(){}
         // @refeye: the reference OCES eye from which we are created.
@@ -188,22 +194,32 @@ export namespace oces
 
             if (!this->eye.mirrorplanes.empty()) {
 
-                // Make hg_mirror. How? Full recapitulation of previous method?
-#if 0
+                // The mirror transform of the reference eye
+                sm::mat<float, 4> mirror = sm::mat<float, 4>::reflection (refeye.mirrorplanes[0].origin, refeye.mirrorplanes[0].normal);
+
+                // Make hg_mirror. How? ? Although we could reflect the first hexgrid positions in
+                // the OCES frame of reference and invert all the 'z' values, a full recapitulation
+                // of previous method is probably still the easiest thing to do.
+#if 1
                 // Set up hex grid. Need mean ommatidial neighbour distance to create the hexgrid, along with the approximate span.
-                this->hg2.init (refeye.d_mean * iod_mult, refeye.d_max * 2.0f);
+                this->hg_mirr.init (refeye.d_mean * iod_mult, refeye.d_max * 2.0f);
 
                 // Now use offset and angle to make a transform for the hexgrid
-                sm::mat<F, 4> tfm (sm::quaternion<F>(sm::vec<F>::uz(), -ang));
+                tfm.set_identity();
+                tfm.rotate (sm::quaternion<F>(sm::vec<F>::uz(), -ang));
+
                 sm::vec<F> c = refeye.eye_plane_coordinates[refeye.central_omm]; // need eye_plane_orientations
+                // Here, make refected c about mirror plane.
+                c = (mirror * c).less_one_dim();
                 c[2] = 0;
                 tfm.pretranslate (c);
-                this->hg2.transform (tfm);
+                this->hg_mirr.transform (tfm);
 
                 // Need 2D points for graham scan to find the convex hull of eye_plane_coordinates
                 //sm::vvec<sm::vec<F, 2>> coords2 (refeye.get_omm_per_eye());
-                for (std::uint32_t i = refeye.get_omm_per_eye(); i < refeye.get_omm_per_eye() * 2; ++i) {
-                    coords2[i - refeye.get_omm_per_eye()] = refeye.eye_plane_coordinates[i].less_one_dim().template as<F>();
+                // Reflect eye plane coordinates?
+                for (std::uint32_t i = 0; i < refeye.get_omm_per_eye(); ++i) {
+                    coords2[i] = (mirror * refeye.eye_plane_coordinates[i]).less_one_dim().less_one_dim().template as<F>();
                 }
                 bnd2 = sm::geometry::graham_scan (coords2);
                 s = {};
@@ -213,52 +229,54 @@ export namespace oces
                     s = bnd2[i-1];
                     e = bnd2[i];
                     sm::bezcurve<F, 3> crv (s, e, e, s); // third order, but make it a straight section from bnd2.
-                    this->eye_outline.add_curve (crv);
+                    this->eye_outline_mirr.add_curve (crv);
                 }
                 // Add the closing path
                 s = bnd2[bnd2.size() - 1];
                 e = bnd2[0];
                 {
                     sm::bezcurve<F, 3> crv (s, e, e, s); // third order, but make it a straight section from bnd2.
-                    this->eye_outline.add_curve (crv);
+                    this->eye_outline_mirr.add_curve (crv);
                 }
 
                 // When we set boundary, we haven't closed the loop.
-                this->hg2.set_boundary (eye_outline);
+                this->hg_mirr.set_boundary (this->eye_outline_mirr);
 
                 // Now resample eye_plane_coordinates[][2], refeye.directions and refeye.acceptance_angles onto hex containers
-                sm::vvec<sm::vec<F>> all_coordinates (refeye.eye_plane_coordinates.size());
+                //sm::vvec<sm::vec<F>> all_coordinates (refeye.eye_plane_coordinates.size());
                 for (std::uint32_t i = 0; i < refeye.eye_plane_coordinates.size(); ++i) {
-                    all_coordinates[i] = refeye.eye_plane_coordinates[i].template as<F>();
+                    all_coordinates[i] = (mirror * refeye.eye_plane_coordinates[i]).less_one_dim().template as<F>();
                 }
 
                 // start with the z values
-                sm::vvec<F> eye_z (all_coordinates.size(), 0.0f);
+                //sm::vvec<F> eye_z (all_coordinates.size(), 0.0f);
                 coords2.resize (all_coordinates.size());
                 for (std::uint32_t i = 0; i < all_coordinates.size(); ++i) {
-                    const sm::vec<F> crd = refeye.eye_plane_coordinates[i].template as<F>();
+                    const sm::vec<F> crd = (mirror * refeye.eye_plane_coordinates[i]).less_one_dim().template as<F>();
                     coords2[i][0] = crd[0];
                     coords2[i][1] = crd[1];
                     eye_z[i]      = crd[2];
                 }
+# if 0
+                // This needs a 'mirror' switch.
+                this->resample_eye_by_averaging (eye_z, this->hg_z_mirr, refeye, this->eye, coords2);
 
-                this->resample_eye_by_averaging (eye_z, this->hg_z, refeye, this->eye, coords2);
-
-                // Build the oces::eye, which means transforming this->hg_z, etc
-                this->eye.position.resize (this->hg.num());
+                // Build the oces::eye, which means transforming this->hg_z_mirr, etc
+                this->eye.position.resize (this->hg.num() + this->hg_mirr.num());
                 auto tfm_position = refeye.eye_plane.eye_to_oces;
-                for (std::uint32_t i = 0; i < this->hg.num(); ++i) {
+                for (std::uint32_t i = 0; i < this->hg_mirr.num(); ++i) {
                     const sm::vec<float> p = {
                         static_cast<float>(this->hg.d_x[i]),
                         static_cast<float>(this->hg.d_y[i]),
                         static_cast<float>(this->hg_z[i])
                     };
-                    this->eye.position[i] = (tfm_position * p).less_one_dim();
+                    this->eye.position[this->hg.num() + i] = (tfm_position * p).less_one_dim();
                 }
+# endif
 #endif
             }
 
-            // Having built one eye, need to generate the mirror.
+            // Having built one eye, need to generate the mirror positions. Delete this in favour of the code above?
             this->eye.construct_mirror_eye();
 
             this->eye.postprocess();
