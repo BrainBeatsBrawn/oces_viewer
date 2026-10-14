@@ -445,28 +445,16 @@ int main (int argc, char** argv)
         bcpv->scaleViewMatrix (1000.0f);
         v.addVisualModel (bcpv);
 
-        // Add a HexGridVisual to display the computed HexGrid next to the eye plane coordinates
+        // Add a HexGridVisual to display the mirror-eye's hexgrid
         hgv = std::make_unique<mplot::HexGridVisual<float>>(&oces_reader.heye.hg_mirr, sm::vec<>{});
         hgv->set_parent (v.get_id());
         hgv->cm.setType (mplot::ColourMapType::Plasma);
-        hgv->setScalarData (&oces_reader.heye.hg_z_mirr);
-        hgv->showboundary = true;
+        hgv->setScalarData (&oces_reader.heye.hg_z);
         hgv->hexVisMode = mplot::HexVisMode::HexInterp;
         hgv->finalize();
         hgv->scaleViewMatrix (1000.0f);
         v.addVisualModel (hgv);
 
-        // Show the boundary that we found
-        bcpv = std::make_unique<mplot::BezCurvePathVisual<float, 3>> (sm::vec<>{});
-        bcpv->set_parent (v.get_id());
-        bcpv->bcp = &oces_reader.heye.eye_outline_mirr;
-        bcpv->path_is_loop = true;
-        bcpv->z = oces_reader.heye.hg_z_mirr.range().min;
-        bcpv->step  = 0.00001f;
-        bcpv->width = bcpv->step / 5.0f;
-        bcpv->finalize();
-        bcpv->scaleViewMatrix (1000.0f);
-        v.addVisualModel (bcpv);
     } // end of constructions used to generate hexeye
 
     auto aar = peye->acceptance_angle.range();
