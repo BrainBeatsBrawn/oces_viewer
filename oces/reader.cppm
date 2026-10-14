@@ -46,9 +46,11 @@ export namespace oces
     {
         // The hexy eye we create
         oces::eye eye;
-        // The flat hexgrid
+        // The flat hexgrid for the first/main eye
         sm::hexgrid<F> hg;
-        // The 'z' positions of the hexgrid eye
+        // The flat hexgrid for the mirror eye (if it exists)
+        sm::hexgrid<F> hg_mirr;
+        // The 'z' positions of the hexgrid eye (use same for both hg and hg_mirr)
         sm::vvec<F> hg_z;
         // The boundary around the outer-most ommatidia. The eye outline.
         sm::bezcurvepath<F> eye_outline;
@@ -124,11 +126,9 @@ export namespace oces
 
             // Now use offset and angle to make a transform for the hexgrid
             F ang = refeye.central_neighbour_angles.min() + sm::mathconst<float>::pi_over_6;
-            sm::mat<F, 4> tfm (sm::quaternion<F>(sm::vec<F>::uz(), ang));
-            sm::vec<F> c = refeye.eye_plane_coordinates[refeye.central_omm]; // need eye_plane_orientations
-            c[2] = 0;
-            tfm.pretranslate (c);
-            this->hg.transform (tfm);
+            sm::mat<F, 3> hg_rotation;
+            hg_rotation.rotate (sm::vec<F>::uz(), ang);
+            this->hg.transform (hg_rotation);
 
             // Need 2D points for graham scan to find the convex hull of eye_plane_coordinates
             sm::vvec<sm::vec<F, 2>> coords2 (refeye.get_omm_per_eye());
@@ -140,7 +140,7 @@ export namespace oces
             sm::vec<F, 2> e = {};
             // From bnd2 make up a set of bezcoords to form a bezcurvepath
             for (std::uint32_t i = 1; i < bnd2.size(); ++i) {
-                s = bnd2[i-1];
+                s = bnd2[i - 1];
                 e = bnd2[i];
                 sm::bezcurve<F, 3> crv (s, e, e, s); // third order, but make it a straight section from bnd2.
                 this->eye_outline.add_curve (crv);
@@ -148,9 +148,10 @@ export namespace oces
             // Add the closing path
             s = bnd2[bnd2.size() - 1];
             e = bnd2[0];
-            sm::bezcurve<F, 3> crv (s, e, e, s); // third order, but make it a straight section from bnd2.
-            this->eye_outline.add_curve (crv);
-
+            {
+                sm::bezcurve<F, 3> crv (s, e, e, s); // third order, but make it a straight section from bnd2.
+                this->eye_outline.add_curve (crv);
+            }
 
             // When we set boundary, we haven't closed the loop.
             this->hg.set_boundary (eye_outline);
@@ -165,7 +166,7 @@ export namespace oces
             sm::vvec<F> eye_z (all_coordinates.size(), 0.0f);
             coords2.resize (all_coordinates.size());
             for (std::uint32_t i = 0; i < all_coordinates.size(); ++i) {
-                const sm::vec<F> crd = refeye.eye_plane_coordinates[i].template as<F>();
+                const sm::vec<F> crd = all_coordinates[i];
                 coords2[i][0] = crd[0];
                 coords2[i][1] = crd[1];
                 eye_z[i]      = crd[2];
@@ -185,7 +186,15 @@ export namespace oces
                 this->eye.position[i] = (tfm_position * p).less_one_dim();
             }
 
-            // Having built one eye, need to generate the mirror.
+            if (!this->eye.mirrorplanes.empty()) {
+                // Make hg_mirr by reflecting hg correctly.
+                // hg_mirr is hg but mirrored across the y-z plane.
+                this->hg_mirr = this->hg; // Carries in the rotation transform and the rotated positions
+                // Adds the additional reflection transform
+                this->hg_mirr.transform (sm::mat<F, 3>::reflection (sm::vec<F, 3>::ux()));
+            }
+
+            // Having built one eye, need to generate the mirror positions.
             this->eye.construct_mirror_eye();
 
             this->eye.postprocess();
@@ -209,10 +218,10 @@ export namespace oces
         std::string filename;
         std::string base_dir = "";
 
-        // Original eye as read from the hexgrid
+        // Original eye as read from the glTF OCES file
         oces::eye eye;
 
-        // Hex-equivalent eye and its associated hexgrid
+        // (Optional) Hex-equivalent eye and its associated hexgrid
         oces::hexeye<float> heye;
 
         // Set true if this->eye has been replaced with the hex equivalent eye (via setup_hexeye())

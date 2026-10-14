@@ -343,7 +343,7 @@ export namespace oces
             this->ready = true;
         }
 
-        // Make the mirror eye
+        // Make the mirror eye by reflecting the positions, orientations (etc), appending new values onto this->position, etc.
         void construct_mirror_eye()
         {
             if (!this->mirrorplanes.empty()) {

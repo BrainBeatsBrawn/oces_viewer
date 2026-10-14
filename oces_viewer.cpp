@@ -220,6 +220,8 @@ int main (int argc, char** argv)
         oces_reader.setup_hexeye();
         std::cout << "Created hex-equivalent eye with " << oces_reader.heye.hg.num()
                   << " hexagonal elements ('hexy ommatidia')\n";
+        std::cout << "and " << oces_reader.heye.hg_mirr.num()
+                  << " mirror hexy ommatidia\n";
     }
 
     // Now view
@@ -442,6 +444,17 @@ int main (int argc, char** argv)
         bcpv->finalize();
         bcpv->scaleViewMatrix (1000.0f);
         v.addVisualModel (bcpv);
+
+        // Add a HexGridVisual to display the mirror-eye's hexgrid
+        hgv = std::make_unique<mplot::HexGridVisual<float>>(&oces_reader.heye.hg_mirr, sm::vec<>{});
+        hgv->set_parent (v.get_id());
+        hgv->cm.setType (mplot::ColourMapType::Plasma);
+        hgv->setScalarData (&oces_reader.heye.hg_z);
+        hgv->hexVisMode = mplot::HexVisMode::HexInterp;
+        hgv->finalize();
+        hgv->scaleViewMatrix (1000.0f);
+        v.addVisualModel (hgv);
+
     } // end of constructions used to generate hexeye
 
     auto aar = peye->acceptance_angle.range();
