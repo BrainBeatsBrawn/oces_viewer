@@ -166,7 +166,7 @@ export namespace oces
             sm::vvec<F> eye_z (all_coordinates.size(), 0.0f);
             coords2.resize (all_coordinates.size());
             for (std::uint32_t i = 0; i < all_coordinates.size(); ++i) {
-                const sm::vec<F> crd = all_coordinates[i]; // refeye.eye_plane_coordinates[i].template as<F>();
+                const sm::vec<F> crd = all_coordinates[i];
                 coords2[i][0] = crd[0];
                 coords2[i][1] = crd[1];
                 eye_z[i]      = crd[2];
@@ -189,11 +189,9 @@ export namespace oces
             if (!this->eye.mirrorplanes.empty()) {
                 // Make hg_mirr by reflecting hg correctly.
                 // hg_mirr is hg but mirrored across the y-z plane.
-                this->hg_mirr = this->hg; // Carries in the transform and the rotated positions
+                this->hg_mirr = this->hg; // Carries in the rotation transform and the rotated positions
                 // Adds the additional reflection transform
                 this->hg_mirr.transform (sm::mat<F, 3>::reflection (sm::vec<F, 3>::ux()));
-
-                std::cout << "hg_mirr.tfm:\n" << hg_mirr.tfm << std::endl;
             }
 
             // Having built one eye, need to generate the mirror positions.
