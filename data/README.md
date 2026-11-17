@@ -1,1 +1,1 @@
-Unpack the files right-eye-data.bin, velox-head.bin and velox-head.gltf in this directory.
+The files right-eye-data.bin, velox-head.bin and velox-head.gltf in this directory are the OCES eye data. Other files are generated data.
