@@ -55,5 +55,5 @@ To see command line options:
 
 To view the velox-head data:
 ```bash
-./build/oces_viewer -f data/velox-head.gltf -r 0.0002 -c -0.00056,0.00005,-0.00005 -x1,0,0 -o0.2 -s -y
+./build/oces_viewer -f data/velox-head.gltf -r 0.0002 -c -0.00054,-0.00009,-0.00002 -x1,0,0 -o0.2 -s -y
 ```
