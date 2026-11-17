@@ -57,3 +57,6 @@ To view the velox-head data:
 ```bash
 ./build/oces_viewer -f data/velox-head.gltf -r 0.0002 -c -0.00054,-0.00009,-0.00002 -x1,0,0 -o0.2 -s -y
 ```
+
+Some parts of the visualization can be toggled with key presses.
+Try 'v' to see the field of view, 'f' for the horizonal and vertical fields of view and 'i' to toggle the head. 'h' will give you a list on stdout.
