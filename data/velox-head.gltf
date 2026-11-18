@@ -1,0 +1,253 @@
+{
+	"asset":{
+		"generator":"Khronos glTF Blender I/O v4.2.70",
+		"version":"2.0"
+	},
+	"scene":0,
+	"scenes":[
+		{
+			"name":"Scene",
+			"nodes":[
+				0
+			]
+		}
+	],
+	"nodes":[
+		{
+			"mesh":0,
+			"name":"head",
+			"children":[1],
+			"extensions":{
+				"OCES_eyes":{
+					"head":true
+				}
+			},
+			"scale":[
+                                0.000001,0.000001,0.000001
+			]
+		},
+		{
+			"name":"right-eye",
+			"extensions":{
+				"OCES_eyes":{
+					"eye":0,
+					"mirrorPlanes": [0]
+				}
+			}
+		}
+
+	],
+	"materials":[
+		{
+			"doubleSided":true,
+			"name":"Material.001",
+			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					0,
+					0,
+					0,
+					1
+				],
+				"metallicFactor":0,
+				"roughnessFactor":0.5
+			}
+		}
+	],
+	"meshes":[
+		{
+			"name":"head-mask-mesh",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":0,
+						"NORMAL":1,
+						"TEXCOORD_0":2
+					},
+					"indices":3,
+					"material":0
+				}
+			]
+		}
+	],
+	"extensionsUsed": [
+		"OCES_eyes"
+	],
+	"extensions": {
+		"OCES_eyes": {
+			"generator": {"program": "manual", "version": "0.0.0"},
+			"creationDatetime": "2026-05-13 19:56:00.0",
+			"version": "0.0.0",
+			"mirrorPlanes":[
+				{"normal": "FRONTAL"}
+			],
+			"eyes": [
+				{
+					"name": "velox-eye",
+					"type": "POINT_OMMATIDIAL",
+					"ommatidialProperties": {
+						"POSITION": 0,
+						"ORIENTATION": 1,
+						"FOCAL_OFFSET": 2,
+						"DIAMETER": 3
+					}
+				}
+			],
+			"ommatidialProperties": [
+				{
+					"type": "ACCESSOR",
+					"value": 4
+				},
+				{
+					"type": "ACCESSOR",
+					"value": 5
+				},
+				{
+					"type": "ACCESSOR",
+					"value": 6
+				},
+				{
+					"type": "ACCESSOR",
+					"value": 7
+				}
+			]
+		}
+	},
+	"accessors":[
+		{
+			"bufferView":0,
+			"componentType":5126,
+			"count":904,
+			"max":[
+				808.3294677734375,
+				419.5159912109375,
+				825.2427978515625
+			],
+			"min":[
+				-808.3294677734375,
+				-953.7021484375,
+				-681.1931762695312
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":1,
+			"componentType":5126,
+			"count":904,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":2,
+			"componentType":5126,
+			"count":904,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":3,
+			"componentType":5123,
+			"count":972,
+			"type":"SCALAR"
+		},
+		{
+			"bufferView": 4,
+			"componentType": 5126,
+			"count": 915,
+			"max":[
+				0.2478039264678955,
+				-0.5927164554595947,
+				1.0005931854248047
+			],
+			"min":[
+				-0.2172042280435562,
+				-0.8223234415054321,
+				0.5688766241073608
+			],
+			"type": "VEC3",
+			"$comment": "Positions of each facet"
+		},
+		{
+			"$comment": "Axial directions of each facet",
+			"bufferView": 5,
+			"componentType": 5126,
+			"count": 915,
+			"type":"VEC3"
+		},
+		{
+			"$comment": "Offset 'vector' for each facet. In practice, this is a (1,) array of negative numbers",
+			"bufferView": 6,
+			"componentType": 5126,
+			"count": 915,
+			"type":"SCALAR"
+		},
+		{
+			"$comment": "Diameter of each facet",
+			"bufferView": 7,
+			"componentType": 5126,
+			"count": 915,
+			"type":"SCALAR"
+		}
+	],
+	"bufferViews":[
+		{
+			"buffer":0,
+			"byteLength":10848,
+			"byteOffset":0,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":10848,
+			"byteOffset":10848,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":7232,
+			"byteOffset":21696,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":1944,
+			"byteOffset":28928,
+			"target":34963
+		},
+		{
+			"$comment": "Positions of each facet",
+			"buffer":1,
+			"byteLength":10980,
+			"byteOffset":0,
+			"target":34962
+		},
+		{
+			"$comment": "Axial directions of each facet",
+			"buffer":1,
+			"byteLength":10980,
+			"byteOffset":10980,
+			"target":34962
+		},
+		{
+			"$comment": "Offset vector W values",
+			"buffer":1,
+			"byteLength":3660,
+			"byteOffset":21960,
+			"target":34962
+		},
+		{
+			"$comment": "Diameter values",
+			"buffer":1,
+			"byteLength":3660,
+			"byteOffset":25620,
+			"target":34962
+		}
+	],
+	"buffers":[
+		{
+			"byteLength":30872,
+			"uri":"velox-head.bin"
+		},
+		{
+			"byteLength":29280,
+			"uri":"right-eye-data.bin"
+		}
+	]
+}
