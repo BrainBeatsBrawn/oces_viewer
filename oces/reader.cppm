@@ -142,14 +142,14 @@ export namespace oces
             for (std::uint32_t i = 1; i < bnd2.size(); ++i) {
                 s = bnd2[i - 1];
                 e = bnd2[i];
-                sm::bezcurve<F, 3> crv (s, e, e, s); // third order, but make it a straight section from bnd2.
+                sm::bezcurve<F> crv (s, e, e, s); // third order, but make it a straight section from bnd2.
                 this->eye_outline.add_curve (crv);
             }
             // Add the closing path
             s = bnd2[bnd2.size() - 1];
             e = bnd2[0];
             {
-                sm::bezcurve<F, 3> crv (s, e, e, s); // third order, but make it a straight section from bnd2.
+                sm::bezcurve<F> crv (s, e, e, s); // third order, but make it a straight section from bnd2.
                 this->eye_outline.add_curve (crv);
             }
 
