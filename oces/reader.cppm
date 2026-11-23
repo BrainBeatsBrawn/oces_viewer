@@ -601,7 +601,6 @@ export namespace oces
                 for (uint32_t i = 0; i < 16; ++i) { matrix.arr[i] = static_cast<float>(gltf_node.matrix[i]); }
             }
             const sm::mat<float, 4> node_xform = parent_matrix * matrix * translation * rotation * scale;
-            std::cout << "node_xform:\n" << node_xform << std::endl;
 
             if (gltf_node.mesh != -1) {
                 const auto& gltf_mesh = model.meshes[gltf_node.mesh];
