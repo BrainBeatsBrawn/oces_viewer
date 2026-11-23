@@ -17,7 +17,6 @@ set(OpenGL_GL_PREFERENCE "GLVND") # Following `cmake --help-policy CMP0072`
 find_package(OpenGL REQUIRED)
 find_package(glfw3 3.3 REQUIRED)
 find_package(Freetype REQUIRED)
-find_package(nlohmann_json REQUIRED)
 find_package(HDF5 REQUIRED)
 if(HDF5_FOUND)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${HDF5_DEFINITIONS}")
@@ -32,29 +31,19 @@ include_directories(BEFORE ${PROJECT_SOURCE_DIR}/extern/maths) # Allows sm/Heade
 include_directories(BEFORE ${PROJECT_SOURCE_DIR}/extern)   # tinygltf etc
 include_directories(BEFORE ${PROJECT_SOURCE_DIR})          # oces/reader.h
 
-# allows #include <nlohmann/json.hpp> so that the module json.cppm can be built
-include_directories ("${PROJECT_SOURCE_DIR}/extern/json/include")
-
 # For viewer programs that use mathplot, we have to compile libglad and libmathplot_fonts
 add_library(glad STATIC ${MPLOT_INCLUDE_PATH}/mplot/glad/gl.c)
 add_library(mplot_fontdata STATIC ${MPLOT_INCLUDE_PATH}/mplot/VisualFaceAsm.cpp)
 
 # Include maths module defs
 include(${PROJECT_SOURCE_DIR}/extern/maths/cmake/module_definitions.cmake)
-setup_module_variables_for_maths (
-  ${PROJECT_SOURCE_DIR}/extern/maths
-  ${PROJECT_SOURCE_DIR}/extern/json
-)
+setup_module_variables_for_maths (${PROJECT_SOURCE_DIR}/extern/maths)
 # Include mathplot module defs
 include(${PROJECT_SOURCE_DIR}/extern/mathplot/cmake/module_definitions.cmake)
-setup_module_variables_for_mathplot (
-  ${PROJECT_SOURCE_DIR}/extern/mathplot
-  ${PROJECT_SOURCE_DIR}/extern/maths
-  ${PROJECT_SOURCE_DIR}/extern/json
-)
+setup_module_variables_for_mathplot (${PROJECT_SOURCE_DIR}/extern/mathplot ${PROJECT_SOURCE_DIR}/extern/maths)
 # Add our own cmake directory
 include(${PROJECT_SOURCE_DIR}/cmake/module_definitions.cmake)
-setup_module_variables_for_oces_viewer (${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/extern/maths)
+setup_module_variables_for_oces_viewer (${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/extern/maths ${PROJECT_SOURCE_DIR}/extern/maths_hdf)
 
 set(OCES_VM_MODULES
   ${MPLOT_INCLUDE_PATH}/mplot/SphereVisual.cppm
@@ -68,6 +57,7 @@ set(OCES_VM_MODULES
   ${SM_JCV_MODULES}
   # Craysim provides the EyeVisual
   ${PROJECT_SOURCE_DIR}/extern/craysim/modules/compoundray/Ommatidium.cppm
+  ${PROJECT_SOURCE_DIR}/extern/craysim/modules/compoundray/ommatidia_datamodel.cppm
   ${PROJECT_SOURCE_DIR}/extern/craysim/modules/compoundray/EyeVisual.cppm
 )
 

@@ -3,10 +3,13 @@
 # build process itself, and by client projects.
 #
 
-macro(setup_module_variables_for_oces_viewer oces_directory maths_directory)
+macro(setup_module_variables_for_oces_viewer oces_directory maths_directory maths_hdf_directory)
 
   include(${maths_directory}/cmake/module_definitions.cmake)
-  setup_module_variables_for_maths (${maths_directory} "") # Don't use json, so pass empty
+  setup_module_variables_for_maths (${maths_directory})
+
+  include(${maths_hdf_directory}/cmake/module_definitions.cmake)
+  setup_module_variables_for_maths_hdf (${maths_hdf_directory} ${maths_directory})
 
   # We import sm.mathconst, sm.vec and sm.vvec as well as sm.mat and sm.geometry.
   set(OCES_READER_MATHS_MODULES
@@ -16,6 +19,8 @@ macro(setup_module_variables_for_oces_viewer oces_directory maths_directory)
     ${SM_MAT_MODULES}
     ${maths_directory}/sm/centroid.cppm
     ${SM_GEOMETRY_MODULES}
+    ${SM_HEXGRID_MODULES}
+    ${SM_HEXGRID_HDF_MODULES}
   )
   list(REMOVE_DUPLICATES OCES_READER_MATHS_MODULES)
 
@@ -24,7 +29,6 @@ macro(setup_module_variables_for_oces_viewer oces_directory maths_directory)
     ${oces_directory}/oces/eye.cppm
     ${oces_directory}/oces/reader.cppm
     ${SM_VVEC_MODULES}
-    ${SM_HEXGRID_HDF_MODULES}
   )
   list(REMOVE_DUPLICATES OCES_READER_MODULES)
 

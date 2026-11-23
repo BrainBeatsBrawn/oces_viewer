@@ -10,9 +10,9 @@
 [submodule "extern/maths"]
 	path = extern/maths
 	url = https://github.com/sebsjames/maths
-[submodule "extern/json"]
-	path = extern/json
-	url = https://github.com/nlohmann/json
 [submodule "extern/craysim"]
 	path = extern/craysim
 	url = https://github.com/BrainBeatsBrawn/craysim
+[submodule "extern/maths_hdf"]
+	path = extern/maths_hdf
+	url = https://github.com/sebsjames/maths_hdf

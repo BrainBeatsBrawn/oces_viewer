@@ -127,15 +127,10 @@ craysim::compoundray::EyeVisual<>* make_eye_model (OcesVisual& v, oces::eye* oce
 {
     if (ep != nullptr) { v.removeVisualModel (ep); }
 
-    mplot::meshgroup* head_mesh_ptr = nullptr;
-    if (v.view_options.test (viewopts::show_head)) {
-        head_mesh_ptr = reinterpret_cast<mplot::meshgroup*>(&oces_eye->head_mesh);
-    }
-
     // Set a fixed colour for head mesh
     oces_eye->head_mesh.single_colour = {0.345f, 0.122f, 0.082f};
 
-    auto eyevm = std::make_unique<craysim::compoundray::EyeVisual<>> (sm::vec<>{}, ommatidiaColours, ommatidia, head_mesh_ptr);
+    auto eyevm = std::make_unique<craysim::compoundray::EyeVisual<>> (sm::vec<>{}, ommatidiaColours, ommatidia);
     eyevm->set_parent (v.get_id());
     eyevm->name = "CompoundRay Eye";
     eyevm->show_cones = true;
@@ -147,7 +142,7 @@ craysim::compoundray::EyeVisual<>* make_eye_model (OcesVisual& v, oces::eye* oce
         ptype = craysim::compoundray::EyeVisual<>::projection_type::cassini;
     }
 
-    sm::mat<float, 4> twod_tr;
+    sm::mat<float, 4> twod_tr = sm::mat<float, 4>::identity();
     twod_tr.translate (v.twod_shift);
 
     if (v.psrad > 0.0f && v.view_options.test (viewopts::show_twod)) {
@@ -172,6 +167,9 @@ craysim::compoundray::EyeVisual<>* make_eye_model (OcesVisual& v, oces::eye* oce
     eyevm->border_width = 100 * std::numeric_limits<float>::epsilon();
     eyevm->show_fov = v.view_options.test (viewopts::show_fov);
     eyevm->pre_set_cone_length (0.005f);
+    if (v.view_options.test (viewopts::show_head)) {
+        eyevm->addMeshgroup (*reinterpret_cast<mplot::meshgroup*>(&oces_eye->head_mesh));
+    }
     eyevm->finalize();
 
     craysim::compoundray::EyeVisual<>* _ep = v.addVisualModel (eyevm);
