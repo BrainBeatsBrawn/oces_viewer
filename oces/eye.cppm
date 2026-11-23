@@ -35,14 +35,14 @@ export namespace oces
         sm::vec<float> ey = sm::vec<float>::uy();
         // This transform takes a coordinate in the eye frame, and converts it to a coordinate in
         // the OCES model frame.
-        sm::mat<float, 4> eye_to_oces = {};
+        sm::mat<float, 4> eye_to_oces = sm::mat<float, 4>::identity();
     };
 
     // This struct matches the layout of mplot::meshgroup
     struct meshgroup
     {
         std::string name;
-        sm::mat<float, 4> transform;
+        sm::mat<float, 4> transform = sm::mat<float, 4>::identity();
         sm::vvec<uint32_t> indices;
         sm::vvec<sm::vec<float>> positions;
         sm::vvec<sm::vec<float>> normals;

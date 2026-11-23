@@ -142,7 +142,7 @@ craysim::compoundray::EyeVisual<>* make_eye_model (OcesVisual& v, oces::eye* oce
         ptype = craysim::compoundray::EyeVisual<>::projection_type::cassini;
     }
 
-    sm::mat<float, 4> twod_tr;
+    sm::mat<float, 4> twod_tr = sm::mat<float, 4>::identity();
     twod_tr.translate (v.twod_shift);
 
     if (v.psrad > 0.0f && v.view_options.test (viewopts::show_twod)) {
@@ -168,7 +168,7 @@ craysim::compoundray::EyeVisual<>* make_eye_model (OcesVisual& v, oces::eye* oce
     eyevm->show_fov = v.view_options.test (viewopts::show_fov);
     eyevm->pre_set_cone_length (0.005f);
     if (v.view_options.test (viewopts::show_head)) {
-        eyevm->addMeshgroup (*reinterpret_cast<mplot::meshgroup*>(&oces_eye->head_mesh)); // Tiny?
+        eyevm->addMeshgroup (*reinterpret_cast<mplot::meshgroup*>(&oces_eye->head_mesh));
     }
     eyevm->finalize();
 

@@ -126,7 +126,7 @@ export namespace oces
 
             // Now use offset and angle to make a transform for the hexgrid
             F ang = refeye.central_neighbour_angles.min() + sm::mathconst<float>::pi_over_6;
-            sm::mat<F, 3> hg_rotation;
+            sm::mat<F, 3> hg_rotation = sm::mat<F, 3>::identity();
             hg_rotation.rotate (sm::vec<F>::uz(), ang);
             this->hg.transform (hg_rotation);
 
@@ -508,7 +508,7 @@ export namespace oces
             }
 
             // Process nodes (to get the head mesh)
-            sm::mat<float, 4> root_transform;
+            auto root_transform = sm::mat<float, 4>::identity();
             std::vector<int32_t> root_nodes (model.nodes.size(), 1);
             for (auto& gltf_node : model.nodes) {
                 for (int32_t child : gltf_node.children) { root_nodes[child] = 0; }
@@ -581,26 +581,27 @@ export namespace oces
 
             std::cerr << "Process node " << gltf_node.name << std::endl;
 
-            sm::mat<float, 4> translation;
+            auto translation = sm::mat<float, 4>::identity();
             if (!gltf_node.translation.empty()) {
                 auto tr = sm::vec<double>{ gltf_node.translation[0], gltf_node.translation[1], gltf_node.translation[2] };
                 sm::vec<float> trf = tr.as<float>();
                 translation.translate (trf);
             }
-            sm::mat<float, 4> rotation;
+            auto rotation = sm::mat<float, 4>::identity();
             if (!gltf_node.rotation.empty()) {
                 sm::quaternion<double> q(gltf_node.rotation[3], gltf_node.rotation[0], gltf_node.rotation[1], gltf_node.rotation[2]);
                 rotation.rotate (q);
             }
-            sm::mat<float, 4> scale;
+            auto scale = sm::mat<float, 4>::identity();
             if (!gltf_node.scale.empty()) {
                 scale.scale (sm::vec<double>({ gltf_node.scale[0], gltf_node.scale[1], gltf_node.scale[2] }).as<float>());
             }
-            sm::mat<float, 4> matrix;
+            auto matrix = sm::mat<float, 4>::identity();
             if (!gltf_node.matrix.empty()) {
                 for (uint32_t i = 0; i < 16; ++i) { matrix.arr[i] = static_cast<float>(gltf_node.matrix[i]); }
             }
             const sm::mat<float, 4> node_xform = parent_matrix * matrix * translation * rotation * scale;
+            std::cout << "node_xform:\n" << node_xform << std::endl;
 
             if (gltf_node.mesh != -1) {
                 const auto& gltf_mesh = model.meshes[gltf_node.mesh];
